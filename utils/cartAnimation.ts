@@ -22,9 +22,12 @@ export function animateProductToCart(
     return
   }
 
+  // Lưu endElement vào biến để TypeScript biết nó không null
+  const targetElement = endElement as HTMLElement
+
   // Lấy vị trí bắt đầu và kết thúc
   const startRect = startElement.getBoundingClientRect()
-  const endRect = endElement.getBoundingClientRect()
+  const endRect = targetElement.getBoundingClientRect()
 
   // Tạo element ảnh bay
   const flyingImage = document.createElement('img')
@@ -106,14 +109,14 @@ export function animateProductToCart(
       flyingImage.remove()
       
       // Tạo hiệu ứng bounce cho icon giỏ hàng
-      endElement.style.transform = 'scale(1.2)'
-      endElement.style.transition = 'transform 0.3s ease-out'
+      targetElement.style.transform = 'scale(1.2)'
+      targetElement.style.transition = 'transform 0.3s ease-out'
       setTimeout(() => {
-        endElement.style.transform = 'scale(1)'
+        targetElement.style.transform = 'scale(1)'
       }, 100)
 
       // Animation cho số lượng (cart-count sẽ được cập nhật bởi CartBottomSheet)
-      const cartCountEl = endElement.querySelector('.cart-count')
+      const cartCountEl = targetElement.querySelector('.cart-count')
       if (cartCountEl) {
         cartCountEl.style.transform = 'scale(1.5)'
         cartCountEl.style.transition = 'transform 0.2s ease-out'
