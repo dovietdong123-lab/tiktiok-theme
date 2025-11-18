@@ -229,6 +229,16 @@ EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 
 -- ============================================
+-- BẢNG STORE_SETTINGS (Cài đặt cửa hàng)
+-- ============================================
+CREATE TABLE IF NOT EXISTS store_settings (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  setting_key VARCHAR(191) NOT NULL UNIQUE,
+  setting_value TEXT NULL,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================
 -- DỮ LIỆU MẪU
 -- ============================================
 
