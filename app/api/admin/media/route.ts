@@ -4,6 +4,9 @@ import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
 import { existsSync } from 'fs'
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 // Get token from request
 async function getToken(request: Request): Promise<string | null> {
   const authHeader = request.headers.get('authorization')

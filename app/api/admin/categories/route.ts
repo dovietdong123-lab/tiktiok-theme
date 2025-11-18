@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { query } from '@/lib/db'
 import { requireAuth } from '@/lib/auth'
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 // GET - Lấy danh sách danh mục (admin)
 export async function GET() {
   try {

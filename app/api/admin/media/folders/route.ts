@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import { query } from '@/lib/db'
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic'
+
 // Get token from request
 async function getToken(request: Request): Promise<string | null> {
   const authHeader = request.headers.get('authorization')
