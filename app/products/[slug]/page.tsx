@@ -20,6 +20,7 @@ interface Product {
   recommended?: Product[]
   reviews?: Review[]
   variants?: Variant[]
+  coupons?: Coupon[]
 }
 
 interface Review {
@@ -28,6 +29,7 @@ interface Review {
   rating: number
   user_name: string
   created_at: string
+  avatar?: string
 }
 
 interface Variant {
@@ -37,6 +39,16 @@ interface Variant {
   regular: number
   discount: number
   image?: string
+}
+
+interface Coupon {
+  id: number
+  code: string
+  description?: string
+  discount_type: 'percent' | 'fixed'
+  discount_value: number
+  min_order_amount?: number | null
+  end_date?: string | null
 }
 
 export default function ProductDetailPage({ params }: { params: { slug: string } }) {
@@ -61,6 +73,7 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
   const [showCheckout, setShowCheckout] = useState(false)
   const [cartCount, setCartCount] = useState(0)
   const [directProduct, setDirectProduct] = useState<any>(null) // Sản phẩm mua trực tiếp
+  const [flashCountdown, setFlashCountdown] = useState(27099)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [isSearching, setIsSearching] = useState(false)
@@ -68,6 +81,48 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const searchResultsRef = useRef<HTMLUListElement>(null)
+  const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>([])
+  const [copyToast, setCopyToast] = useState<{ visible: boolean; message: string }>({
+    visible: false,
+    message: '',
+  })
+
+  const renderLoadingSkeleton = () => (
+    <div className="p-4 space-y-6">
+      <div className="w-full aspect-square bg-gray-200 rounded-xl animate-pulse" />
+      <div className="space-y-3 animate-pulse">
+        <div className="h-6 bg-gray-200 rounded w-3/4" />
+        <div className="h-4 bg-gray-100 rounded w-2/3" />
+        <div className="h-4 bg-gray-100 rounded w-1/2" />
+      </div>
+      <div className="bg-white rounded shadow p-4 space-y-3">
+        <div className="h-4 bg-gray-100 rounded w-24" />
+        <div className="h-6 bg-gray-200 rounded w-full" />
+        <div className="h-4 bg-gray-100 rounded w-3/4" />
+        <div className="h-4 bg-gray-100 rounded w-2/3" />
+      </div>
+      <div className="space-y-3">
+        {Array.from({ length: 3 }).map((_, idx) => (
+          <div key={idx} className="bg-white rounded shadow p-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-gray-200" />
+              <div className="flex-1 space-y-2">
+                <div className="h-4 bg-gray-200 rounded w-1/2" />
+                <div className="h-3 bg-gray-100 rounded w-1/3" />
+              </div>
+            </div>
+            <div className="h-3 bg-gray-100 rounded w-full" />
+            <div className="h-3 bg-gray-100 rounded w-5/6" />
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        {Array.from({ length: 4 }).map((_, idx) => (
+          <div key={idx} className="h-36 bg-gray-100 rounded-lg animate-pulse" />
+        ))}
+      </div>
+    </div>
+  )
 
   // Load cart count on mount and when cart updates
   useEffect(() => {
@@ -143,6 +198,33 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
   }, [slug])
 
   useEffect(() => {
+    setFlashCountdown(27099)
+    const interval = setInterval(() => {
+      setFlashCountdown((prev) => (prev > 0 ? prev - 1 : 0))
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [product?.id])
+
+  useEffect(() => {
+    if (!copyToast.visible) return
+    const timer = setTimeout(() => setCopyToast({ visible: false, message: '' }), 2000)
+    return () => clearTimeout(timer)
+  }, [copyToast.visible])
+  const handleCopyCoupon = (code: string) => {
+    navigator.clipboard.writeText(code).then(() => {
+      setCopyToast({ visible: true, message: `Đã sao chép mã ${code}` })
+    })
+  }
+
+  const formatCountdown = (seconds: number) => {
+    const hrs = Math.floor(seconds / 3600)
+    const mins = Math.floor((seconds % 3600) / 60)
+    const secs = seconds % 60
+    const pad = (num: number) => String(num).padStart(2, '0')
+    return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`
+  }
+
+  useEffect(() => {
     const container = scrollContainerRef.current
     if (!container || !product) return
 
@@ -197,6 +279,7 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
         console.log('Product data loaded:', data.data)
         console.log('Variants:', data.data.variants)
         setProduct(data.data)
+        setAvailableCoupons(Array.isArray(data.data.coupons) ? data.data.coupons : [])
         setCurrentImageIndex(0)
       }
     } catch (error) {
@@ -344,6 +427,7 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
   }
 
   return (
+    <>
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 w-full max-w-[500px] mx-auto">
       <div
         className={`absolute top-0 right-0 w-full h-full bg-white flex flex-col overflow-hidden transform-gpu transition-transform ${panelTransformClass}`}
@@ -478,26 +562,31 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
         {/* Scrollable Content */}
         <div className="flex-1 overflow-auto" id="scrollable-container" ref={scrollContainerRef}>
           {loading ? (
-            <div className="p-4 text-center">Đang tải...</div>
+            renderLoadingSkeleton()
           ) : product ? (
             <>
               {/* Tổng quan Section */}
               <section id="tongquan" ref={tongquanRef} className="section scroll-mt-20">
                   {/* Gallery */}
-                  <div id="gallery-container" className="w-full aspect-square overflow-hidden relative">
-                    <div
-                      id="gallery-slide"
-                      className="flex transition-transform duration-300 ease-in-out"
-                      style={{
-                        transform: `translateX(-${currentImageIndex * 100}%)`,
-                      }}
-                    >
+                  <div
+                    id="gallery-container"
+                    className="w-full aspect-square overflow-hidden relative"
+                    style={{ aspectRatio: '1 / 1' }}
+                  >
+                  <div
+                    id="gallery-slide"
+                    className="flex h-full transition-transform duration-300 ease-in-out"
+                    style={{
+                      transform: `translateX(-${currentImageIndex * 100}%)`,
+                    }}
+                  >
                       {product.gallery.map((img, idx) => (
                         <img
                           key={idx}
                           src={img}
                           alt={product.name}
-                          className="w-full h-full object-cover flex-shrink-0"
+                        className="w-full h-full min-h-full object-cover flex-shrink-0 min-w-full block"
+                        style={{ objectFit: 'cover', objectPosition: 'center' }}
                         />
                       ))}
                     </div>
@@ -547,13 +636,13 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
                     <div className="text-right">
                       <div className="font-bold">Flash Sale của shop</div>
                       <div className="text-xs">
-                        Kết thúc sau <span className="countdown font-mono">07:31:39</span>
+                      Kết thúc sau <span className="countdown font-mono">{formatCountdown(flashCountdown)}</span>
                       </div>
                     </div>
                   </div>
 
                   {/* Product Info */}
-                  <div className="w-full max-w-md mx-auto bg-white p-4 rounded shadow">
+                  <div className="w-full max-w-md mx-auto bg-white rounded p-4">
                     <div>
                       <span className="bg-black text-white text-xs px-1 py-0.5 rounded">Mall</span>
                       <span className="text-sm font-medium title">{product.name}</span>
@@ -593,25 +682,50 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
 
                     <div className="mt-3">
                       <div className="font-medium text-sm mb-2">Voucher & Khuyến mãi</div>
-                      <div className="flex gap-2 flex-wrap">
-                        <div className="border border-dashed border-blue-400 rounded px-3 py-2 text-xs text-blue-600 flex items-center justify-between gap-2">
-                          <span>Voucher vận chuyển</span>
-                          <button className="bg-blue-500 text-white px-2 py-0.5 rounded text-xs">
-                            Sử dụng
-                          </button>
-                        </div>
-                        <div className="border border-dashed border-pink-400 rounded px-3 py-2 text-xs text-pink-600">
-                          Giảm 10K đ<br />
-                          <span className="text-gray-500">Cho đơn trên 100K</span>
-                        </div>
+                      <div className="flex flex-col gap-2 text-xs text-gray-700">
+                        {availableCoupons.length > 0 ? (
+                          availableCoupons.map((coupon) => (
+                            <div
+                              key={coupon.id}
+                              className="border border-dashed rounded px-3 py-2 flex items-center justify-between gap-2 bg-pink-50"
+                            >
+                              <div>
+                                <div className="font-semibold text-pink-600">
+                                  {coupon.code} •{' '}
+                                  {coupon.discount_type === 'percent'
+                                    ? `${coupon.discount_value}%`
+                                    : `${coupon.discount_value.toLocaleString('vi-VN')}₫`}
+                                </div>
+                                <div className="text-gray-500">
+                                  {coupon.description || 'Áp dụng cho đơn phù hợp'}
+                                </div>
+                                {coupon.end_date && (
+                                  <div className="text-[11px] text-gray-400">
+                                    HSD: {new Date(coupon.end_date).toLocaleDateString('vi-VN')}
+                                  </div>
+                                )}
+                              </div>
+                              <button
+                                className="bg-pink-500 text-white px-2 py-1 rounded text-xs"
+                                onClick={() => handleCopyCoupon(coupon.code)}
+                              >
+                                Sao chép
+                              </button>
+                            </div>
+                          ))
+                        ) : (
+                          <div className="border border-dashed border-gray-300 rounded px-3 py-2 text-gray-400">
+                            Chưa có mã giảm giá cho sản phẩm này
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
                 </section>
 
               {/* Đánh giá Section */}
-              <section id="danhgia" ref={danhgiaRef} className="section p-4 pt-8 scroll-mt-20">
-                  <div className="w-full max-w-md mx-auto bg-white rounded shadow">
+              <section id="danhgia" ref={danhgiaRef} className="section pt-8 scroll-mt-20">
+                  <div className="w-full max-w-md mx-auto bg-white rounded">
                     {/* Rating Summary */}
                     <div className="p-4 border-b">
                       <div className="flex items-center justify-between mb-2">
@@ -656,8 +770,14 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
                           <div key={review.id} className="border-b pb-4 last:border-b-0">
                             <div className="flex items-start justify-between mb-2">
                               <div className="flex items-center gap-2">
-                                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                                  {review.user_name?.charAt(0).toUpperCase() || 'U'}
+                                <div className="w-10 h-10 rounded-full bg-gray-100 border flex items-center justify-center overflow-hidden text-white text-xs font-bold">
+                                  {review.avatar ? (
+                                    <img src={review.avatar} alt={review.user_name || 'review avatar'} className="w-full h-full object-cover" />
+                                  ) : (
+                                    <span className="text-gray-500">
+                                      {review.user_name?.charAt(0).toUpperCase() || 'U'}
+                                    </span>
+                                  )}
                                 </div>
                                 <div>
                                   <div className="font-medium text-sm text-gray-800">
@@ -672,15 +792,11 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
                                   </div>
                                 </div>
                               </div>
-                              <div className="text-xs text-gray-400">
-                                {review.created_at
-                                  ? new Date(review.created_at).toLocaleDateString('vi-VN')
-                                  : ''}
-                              </div>
                             </div>
-                            <div className="text-sm text-gray-700 mt-2">
-                              {review.content || 'Không có nội dung đánh giá'}
-                            </div>
+                            <div
+                              className="text-sm text-gray-700 mt-2 prose prose-sm max-w-none"
+                              dangerouslySetInnerHTML={{ __html: review.content || 'Không có nội dung đánh giá' }}
+                            />
                           </div>
                         ))
                       ) : (
@@ -694,8 +810,8 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
                 </section>
 
               {/* Mô tả Section */}
-              <section id="mota" ref={motaRef} className="section p-4 pt-8 scroll-mt-20">
-                  <div className="product-description relative bg-white rounded shadow">
+              <section id="mota" ref={motaRef} className="section pt-8 scroll-mt-20">
+                  <div className="product-description relative bg-white rounded">
                     {product.description ? (
                       <>
                         <div
@@ -733,7 +849,7 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
                 </section>
 
               {/* Đề xuất Section */}
-              <section id="dexuat" ref={dexuatRef} className="section p-4 pt-8 scroll-mt-20">
+              <section id="dexuat" ref={dexuatRef} className="section pt-8 p-4 scroll-mt-20">
                   <div className="mb-4">
                     <h2 className="text-lg font-bold text-gray-800">Sản phẩm đề xuất</h2>
                     <p className="text-sm text-gray-500 mt-1">Các sản phẩm bạn có thể quan tâm</p>
@@ -882,6 +998,12 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
         directProduct={directProduct}
       />
     </div>
+    {copyToast.visible && (
+      <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-4 py-2 rounded-full shadow-lg z-[60]">
+        {copyToast.message}
+      </div>
+    )}
+    </>
   )
 }
 

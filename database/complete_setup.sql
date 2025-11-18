@@ -91,6 +91,7 @@ CREATE TABLE IF NOT EXISTS product_reviews (
   id INT AUTO_INCREMENT PRIMARY KEY,
   product_id INT NOT NULL,
   user_name VARCHAR(100),
+  avatar VARCHAR(500),
   content TEXT NOT NULL,
   rating INT DEFAULT 5 CHECK (rating >= 1 AND rating <= 5),
   status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
@@ -99,6 +100,19 @@ CREATE TABLE IF NOT EXISTS product_reviews (
   INDEX idx_status (status),
   FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Thêm cột avatar nếu chưa có (bỏ qua lỗi nếu tồn tại)
+SET @sql = IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS 
+   WHERE TABLE_SCHEMA = DATABASE() 
+   AND TABLE_NAME = 'product_reviews' 
+   AND COLUMN_NAME = 'avatar') = 0,
+  'ALTER TABLE product_reviews ADD COLUMN avatar VARCHAR(500) NULL',
+  'SELECT "Column avatar already exists" as message'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- ============================================
 -- BẢNG ORDERS (Đơn hàng)
@@ -109,6 +123,9 @@ CREATE TABLE IF NOT EXISTS orders (
   customer_phone VARCHAR(20) NOT NULL,
   customer_address TEXT NOT NULL,
   total_amount DECIMAL(10, 2) NOT NULL,
+  discount_amount DECIMAL(10, 2) NOT NULL DEFAULT 0,
+  final_amount DECIMAL(10, 2) NOT NULL DEFAULT 0,
+  coupon_code VARCHAR(50),
   status ENUM('pending', 'processing', 'shipped', 'delivered', 'cancelled') DEFAULT 'pending',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -133,6 +150,28 @@ CREATE TABLE IF NOT EXISTS order_items (
   INDEX idx_product (product_id),
   FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
   FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ============================================
+-- BẢNG DISCOUNT_COUPONS (Mã giảm giá)
+-- ============================================
+CREATE TABLE IF NOT EXISTS discount_coupons (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(50) NOT NULL UNIQUE,
+  description VARCHAR(255),
+  discount_type ENUM('percent', 'fixed') NOT NULL DEFAULT 'percent',
+  discount_value DECIMAL(10, 2) NOT NULL DEFAULT 0,
+  min_order_amount DECIMAL(10, 2),
+  usage_limit INT,
+  usage_count INT NOT NULL DEFAULT 0,
+  start_date DATETIME,
+  end_date DATETIME,
+  status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_code (code),
+  INDEX idx_status (status),
+  INDEX idx_dates (start_date, end_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- ============================================
@@ -281,6 +320,48 @@ INSERT INTO products (name, slug, price, regular_price, discount, image, gallery
  '<p>Áo thun cổ tròn basic với chất liệu cotton mềm mại, thoáng mát. Thiết kế đơn giản, dễ phối đồ.</p><p><strong>Đặc điểm:</strong></p><ul><li>Chất liệu cotton 100%</li><li>Mềm mại, thoáng mát</li><li>Thiết kế basic, dễ phối đồ</li><li>Nhiều màu sắc</li></ul>',
  'Áo thun cổ tròn basic, cotton mềm mại', 2, 100, 'active', FALSE)
 ON DUPLICATE KEY UPDATE name = VALUES(name);
+
+-- ============================================
+-- THÊM CÁC CỘT COUPON VÀO BẢNG ORDERS (nếu chưa có)
+-- ============================================
+-- Kiểm tra và thêm cột discount_amount
+SET @sql = IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS 
+   WHERE TABLE_SCHEMA = DATABASE() 
+   AND TABLE_NAME = 'orders' 
+   AND COLUMN_NAME = 'discount_amount') = 0,
+  'ALTER TABLE orders ADD COLUMN discount_amount DECIMAL(10, 2) NOT NULL DEFAULT 0 AFTER total_amount',
+  'SELECT "Column discount_amount already exists" as message'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- Kiểm tra và thêm cột final_amount
+SET @sql = IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS 
+   WHERE TABLE_SCHEMA = DATABASE() 
+   AND TABLE_NAME = 'orders' 
+   AND COLUMN_NAME = 'final_amount') = 0,
+  'ALTER TABLE orders ADD COLUMN final_amount DECIMAL(10, 2) NOT NULL DEFAULT 0 AFTER discount_amount',
+  'SELECT "Column final_amount already exists" as message'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+-- Kiểm tra và thêm cột coupon_code
+SET @sql = IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS 
+   WHERE TABLE_SCHEMA = DATABASE() 
+   AND TABLE_NAME = 'orders' 
+   AND COLUMN_NAME = 'coupon_code') = 0,
+  'ALTER TABLE orders ADD COLUMN coupon_code VARCHAR(50) NULL AFTER final_amount',
+  'SELECT "Column coupon_code already exists" as message'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 -- ============================================
 -- HOÀN TẤT

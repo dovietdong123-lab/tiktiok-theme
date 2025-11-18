@@ -75,6 +75,7 @@ export async function POST(request: Request) {
       featured,
       status,
       attributes,
+      reviews,
     } = body
 
     // Validate required fields
@@ -86,6 +87,46 @@ export async function POST(request: Request) {
         },
         { status: 400 }
       )
+    }
+
+    // Validate price
+    const priceNum = Number(price)
+    if (Number.isNaN(priceNum) || priceNum <= 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Price must be a positive number',
+        },
+        { status: 400 }
+      )
+    }
+
+    // Validate discount
+    if (discount !== undefined) {
+      const discountNum = Number(discount)
+      if (Number.isNaN(discountNum) || discountNum < 0 || discountNum > 100) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Discount must be between 0 and 100',
+          },
+          { status: 400 }
+        )
+      }
+    }
+
+    // Validate stock
+    if (stock !== undefined) {
+      const stockNum = Number(stock)
+      if (Number.isNaN(stockNum) || stockNum < 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Stock must be a non-negative number',
+          },
+          { status: 400 }
+        )
+      }
     }
 
     // Auto generate slug if not provided
@@ -132,9 +173,12 @@ export async function POST(request: Request) {
       ]
     )
 
+    const productId = (result as any).insertId
+    await insertReviews(productId, reviews)
+
     return NextResponse.json({
       success: true,
-      data: { id: (result as any).insertId },
+      data: { id: productId },
     })
   } catch (error: any) {
     console.error('Error creating product:', error)
@@ -144,6 +188,28 @@ export async function POST(request: Request) {
         error: error.message || 'Failed to create product',
       },
       { status: 500 }
+    )
+  }
+}
+
+async function insertReviews(productId: number, reviews: any) {
+  if (!Array.isArray(reviews) || reviews.length === 0) return
+  for (const review of reviews) {
+    if (!review || (!review.user_name && !review.content)) continue
+    const rating = Math.min(5, Math.max(1, Number(review.rating) || 5))
+    const status =
+      review.status === 'pending' || review.status === 'rejected' ? review.status : 'approved'
+    await query(
+      `INSERT INTO product_reviews (product_id, user_name, avatar, content, rating, status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        productId,
+        review.user_name || '',
+        review.avatar || '',
+        review.content || '',
+        rating,
+        status,
+      ]
     )
   }
 }

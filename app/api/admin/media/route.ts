@@ -176,6 +176,16 @@ export async function POST(request: Request) {
       })
       publicUrl = blob.url
     } else {
+      if (process.env.VERCEL) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              'BLOB_READ_WRITE_TOKEN is required on Vercel because the filesystem is read-only. Please configure Vercel Blob storage.',
+          },
+          { status: 500 }
+        )
+      }
       // Local fallback: save to public/uploads
       const uploadsDir = join(process.cwd(), 'public', 'uploads')
       if (!existsSync(uploadsDir)) {

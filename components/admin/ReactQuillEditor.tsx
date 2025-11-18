@@ -17,7 +17,6 @@ interface ReactQuillEditorProps {
 }
 
 export default function ReactQuillEditor({ value, onChange, placeholder = 'Nhập nội dung...' }: ReactQuillEditorProps) {
-  const quillRef = useRef<any>(null)
   const quillInstanceRef = useRef<any>(null)
   const [showMediaLibrary, setShowMediaLibrary] = useState(false)
   const [isModulesReady, setIsModulesReady] = useState(false)
@@ -130,30 +129,15 @@ export default function ReactQuillEditor({ value, onChange, placeholder = 'Nhậ
     registerQuillModules()
   }, [])
 
-  // Get Quill instance
+  // Get cached Quill instance
   const getQuillInstance = useCallback(() => {
-    // First try cached instance
-    if (quillInstanceRef.current) {
-      return quillInstanceRef.current
-    }
-    
-    // Try to find Quill instance in DOM (ReactQuill doesn't support ref directly)
-    const editorEl = document.querySelector('.ql-editor')?.closest('.ql-container')
-    if (editorEl && (editorEl as any).__quill) {
-      const quill = (editorEl as any).__quill
+    return quillInstanceRef.current || null
+  }, [])
+
+  const cacheQuillInstance = useCallback((quill: any) => {
+    if (quill) {
       quillInstanceRef.current = quill
-      return quill
     }
-    
-    // Try to get from any .ql-container
-    const reactQuillEl = document.querySelector('.ql-container')
-    if (reactQuillEl && (reactQuillEl as any).__quill) {
-      const quill = (reactQuillEl as any).__quill
-      quillInstanceRef.current = quill
-      return quill
-    }
-    
-    return null
   }, [])
 
   const handleImageSelect = useCallback((url: string) => {
@@ -221,13 +205,14 @@ export default function ReactQuillEditor({ value, onChange, placeholder = 'Nhậ
   )
 
   const handleChange = useCallback(
-    (content: string) => {
+    (content: string, editorInstance?: any) => {
       // ✅ FIX 3: Get actual HTML from Quill to ensure align styles are included
       // ReactQuill's content parameter may not include align styles
       // Using quill.root.innerHTML ensures we get the full HTML with all styles
       try {
-        const quill = getQuillInstance()
+        const quill = editorInstance || getQuillInstance()
         if (quill && quill.root) {
+          cacheQuillInstance(quill)
           // Use root.innerHTML to get HTML with all styles (including text-align)
           const actualHTML = quill.root.innerHTML || content
           onChange(actualHTML)
@@ -241,7 +226,7 @@ export default function ReactQuillEditor({ value, onChange, placeholder = 'Nhậ
         onChange(content)
       }
     },
-    [onChange, getQuillInstance]
+    [onChange, getQuillInstance, cacheQuillInstance]
   )
 
   // Normalize value to always be a string
@@ -266,18 +251,10 @@ export default function ReactQuillEditor({ value, onChange, placeholder = 'Nhậ
     <div className="rounded-lg bg-white">
       <ReactQuill
         key={`quill-${modulesKey}`} // Force re-render when modules change
-        onFocus={() => {
-          // Cache Quill instance when editor gets focus
-          setTimeout(() => {
-            const quill = getQuillInstance()
-            if (quill) {
-              quillInstanceRef.current = quill
-            }
-          }, 100)
-        }}
         theme="snow"
         value={normalizedValue}
-        onChange={handleChange}
+        onChange={(content, delta, source, editor) => handleChange(content, editor)}
+        onFocus={(_range, _source, quill) => cacheQuillInstance(quill)}
         modules={modules}
         formats={formats}
         placeholder={placeholder}

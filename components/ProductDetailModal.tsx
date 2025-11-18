@@ -17,11 +17,16 @@ interface Product {
   recommended?: Product[]
   reviews?: Review[]
   variants?: Variant[]
+  coupons?: Coupon[]
 }
 
 interface Review {
+  id?: number
   content: string
   rating: number
+  user_name?: string
+  avatar?: string
+  created_at?: string
 }
 
 interface Variant {
@@ -31,6 +36,16 @@ interface Variant {
   regular: number
   discount: number
   image?: string
+}
+
+interface Coupon {
+  id: number
+  code: string
+  description?: string
+  discount_type: 'percent' | 'fixed'
+  discount_value: number
+  min_order_amount?: number | null
+  end_date?: string | null
 }
 
 export default function ProductDetailModal() {
@@ -47,6 +62,46 @@ export default function ProductDetailModal() {
   const [isAnimating, setIsAnimating] = useState(true)
   const [isClosing, setIsClosing] = useState(false)
   const [cartCount, setCartCount] = useState(0)
+  const [flashCountdown, setFlashCountdown] = useState(27099)
+  const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>([])
+  const [copyToast, setCopyToast] = useState({ visible: false, message: '' })
+
+  const renderLoadingSkeleton = () => (
+    <div className="p-4 space-y-6">
+      <div className="w-full aspect-square bg-gray-200 rounded-lg animate-pulse" />
+      <div className="space-y-4">
+        <div className="h-8 bg-gray-200 rounded animate-pulse w-3/4" />
+        <div className="h-4 bg-gray-100 rounded animate-pulse w-2/3" />
+        <div className="h-4 bg-gray-100 rounded animate-pulse w-1/2" />
+      </div>
+      <div className="bg-white rounded shadow p-4 space-y-3">
+        <div className="h-4 bg-gray-100 rounded w-24 animate-pulse" />
+        <div className="h-6 bg-gray-200 rounded w-full animate-pulse" />
+        <div className="h-4 bg-gray-100 rounded w-3/4 animate-pulse" />
+        <div className="h-4 bg-gray-100 rounded w-2/3 animate-pulse" />
+      </div>
+      <div className="space-y-3">
+        {Array.from({ length: 3 }).map((_, idx) => (
+          <div key={idx} className="bg-white rounded shadow p-4 space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-full bg-gray-200 animate-pulse" />
+              <div className="flex-1 space-y-2">
+                <div className="h-4 bg-gray-200 rounded w-1/2" />
+                <div className="h-3 bg-gray-100 rounded w-1/3" />
+              </div>
+            </div>
+            <div className="h-3 bg-gray-100 rounded w-full" />
+            <div className="h-3 bg-gray-100 rounded w-5/6" />
+          </div>
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-4">
+        {Array.from({ length: 4 }).map((_, idx) => (
+          <div key={idx} className="bg-gray-100 rounded-lg h-32 animate-pulse" />
+        ))}
+      </div>
+    </div>
+  )
 
   // Load cart count on mount and when cart updates
   useEffect(() => {
@@ -110,6 +165,31 @@ export default function ProductDetailModal() {
     }
   }, [isOpen, productId])
 
+  useEffect(() => {
+    if (!isOpen) return
+    setFlashCountdown(27099)
+    const interval = setInterval(() => {
+      setFlashCountdown((prev) => (prev > 0 ? prev - 1 : 0))
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [isOpen, product?.id])
+
+  useEffect(() => {
+    if (!copyToast.visible) return
+    const timer = setTimeout(() => {
+      setCopyToast((prev) => ({ ...prev, visible: false }))
+    }, 2000)
+    return () => clearTimeout(timer)
+  }, [copyToast.visible])
+
+  const formatCountdown = (seconds: number) => {
+    const hrs = Math.floor(seconds / 3600)
+    const mins = Math.floor((seconds % 3600) / 60)
+    const secs = seconds % 60
+    const pad = (num: number) => String(num).padStart(2, '0')
+    return `${pad(hrs)}:${pad(mins)}:${pad(secs)}`
+  }
+
   const handleClose = () => {
     // Đánh dấu là back navigation để trang cũ không animate
     sessionStorage.setItem('product_modal_back', 'true')
@@ -140,6 +220,11 @@ export default function ProductDetailModal() {
       const data = await response.json()
       if (data.success) {
         setProduct(data.data)
+        if (Array.isArray(data.data.coupons)) {
+          setAvailableCoupons(data.data.coupons)
+        } else {
+          setAvailableCoupons([])
+        }
         setCurrentImageIndex(0)
       }
     } catch (error) {
@@ -274,16 +359,20 @@ export default function ProductDetailModal() {
         {/* Scrollable Content */}
         <div className="flex-1 overflow-auto" id="scrollable-container" ref={scrollContainerRef}>
           {loading ? (
-            <div className="p-4 text-center">Đang tải...</div>
+            renderLoadingSkeleton()
           ) : product ? (
             <>
               {/* Tổng quan Section */}
               <section id="tongquan" className="section">
                 {/* Gallery */}
-                <div id="gallery-container" className="w-full aspect-square overflow-hidden relative">
+                <div
+                  id="gallery-container"
+                  className="w-full aspect-square overflow-hidden relative"
+                  style={{ aspectRatio: '1 / 1' }}
+                >
                   <div
                     id="gallery-slide"
-                    className="flex transition-transform duration-300 ease-in-out"
+                    className="flex h-full transition-transform duration-300 ease-in-out"
                     style={{
                       transform: `translateX(-${currentImageIndex * 100}%)`,
                     }}
@@ -293,7 +382,8 @@ export default function ProductDetailModal() {
                         key={idx}
                         src={img}
                         alt={product.name}
-                        className="w-full h-full object-cover flex-shrink-0"
+                        className="w-full h-full min-h-full object-cover flex-shrink-0 min-w-full block"
+                        style={{ objectFit: 'cover', objectPosition: 'center' }}
                       />
                     ))}
                   </div>
@@ -343,7 +433,7 @@ export default function ProductDetailModal() {
                   <div className="text-right">
                     <div className="font-bold">Flash Sale của shop</div>
                     <div className="text-xs">
-                      Kết thúc sau <span className="countdown font-mono">07:31:39</span>
+                      Kết thúc sau <span className="countdown font-mono">{formatCountdown(flashCountdown)}</span>
                     </div>
                   </div>
                 </div>
@@ -389,17 +479,46 @@ export default function ProductDetailModal() {
 
                   <div className="mt-3">
                     <div className="font-medium text-sm mb-2">Voucher & Khuyến mãi</div>
-                    <div className="flex gap-2 flex-wrap">
-                      <div className="border border-dashed border-blue-400 rounded px-3 py-2 text-xs text-blue-600 flex items-center justify-between gap-2">
-                        <span>Voucher vận chuyển</span>
-                        <button className="bg-blue-500 text-white px-2 py-0.5 rounded text-xs">
-                          Sử dụng
-                        </button>
-                      </div>
-                      <div className="border border-dashed border-pink-400 rounded px-3 py-2 text-xs text-pink-600">
-                        Giảm 10K đ<br />
-                        <span className="text-gray-500">Cho đơn trên 100K</span>
-                      </div>
+                    <div className="flex flex-col gap-2 text-xs text-gray-700">
+                      {availableCoupons.length > 0 ? (
+                        availableCoupons.map((coupon) => (
+                          <div
+                            key={coupon.id}
+                            className="border border-dashed border-pink-300 rounded px-3 py-2 flex items-center justify-between gap-3 bg-pink-50"
+                          >
+                            <div>
+                              <div className="font-semibold text-pink-600">
+                                {coupon.code} •{' '}
+                                {coupon.discount_type === 'percent'
+                                  ? `${coupon.discount_value}%`
+                                  : `${coupon.discount_value.toLocaleString('vi-VN')}₫`}
+                              </div>
+                              <div className="text-gray-500">
+                                {coupon.description || 'Áp dụng cho đơn phù hợp'}
+                              </div>
+                              {coupon.end_date && (
+                                <div className="text-[11px] text-gray-400">
+                                  HSD: {new Date(coupon.end_date).toLocaleDateString('vi-VN')}
+                                </div>
+                              )}
+                            </div>
+                            <button
+                              className="bg-pink-500 text-white px-2 py-1 rounded text-xs"
+                              onClick={() => {
+                                navigator.clipboard.writeText(coupon.code).then(() =>
+                                  setCopyToast({ visible: true, message: `Đã sao chép mã ${coupon.code}` })
+                                )
+                              }}
+                            >
+                              Sao chép
+                            </button>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="border border-dashed border-gray-300 rounded px-3 py-2 text-gray-400">
+                          Chưa có mã giảm giá cho sản phẩm này
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -407,19 +526,82 @@ export default function ProductDetailModal() {
 
               {/* Đánh giá Section */}
               <section id="danhgia" className="section">
-                <div className="w-full max-w-md mx-auto bg-white p-4 rounded shadow">
+                <div className="w-full max-w-md mx-auto bg-white p-4 rounded">
                   <div className="flex items-center justify-between mb-2">
-                    <h2 className="font-bold text-gray-800 text-sm">Đánh giá của khách hàng (1772)</h2>
+                    <h2 className="font-bold tetext-gray-800 text-sm">
+                      Đánh giá của khách hàng
+                    </h2>
                     <a href="#" className="text-blue-500 text-xs">
                       Xem thêm &gt;
                     </a>
                   </div>
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-lg font-semibold text-gray-800">4.8</span>
-                    <span className="text-sm text-gray-500">/5</span>
-                    <div className="flex text-yellow-400">★★★★★</div>
-                  </div>
-                  {/* Reviews will be rendered here */}
+
+                  {product?.reviews && product.reviews.length > 0 ? (
+                    <>
+                      <div className="flex items-center gap-3 mb-3">
+                        <div className="text-center">
+                          <div className="text-2xl font-bold text-gray-800">
+                            {(
+                              product.reviews.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) /
+                              product.reviews.length
+                            ).toFixed(1)}
+                          </div>
+                          <div className="text-xs text-gray-500">/5</div>
+                          <div className="flex text-yellow-400 text-xs mt-1">
+                            {'★'.repeat(
+                              Math.round(
+                                product.reviews.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) /
+                                  product.reviews.length
+                              )
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <div className="text-xs text-gray-600">
+                            {product.reviews.length} đánh giá
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-4">
+                        {product.reviews.map((review: any) => (
+                          <div key={review.id} className="border-b pb-4 last:border-b-0">
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <div className="w-10 h-10 rounded-full bg-gray-100 border flex items-center justify-center overflow-hidden text-xs font-bold text-gray-500">
+                                  {review.avatar ? (
+                                    <img src={review.avatar} alt={review.user_name || 'avatar'} className="w-full h-full object-cover" />
+                                  ) : (
+                                    (review.user_name?.charAt(0).toUpperCase() || 'U')
+                                  )}
+                                </div>
+                                <div>
+                                  <div className="font-medium text-sm text-gray-800">
+                                    {review.user_name || 'Khách hàng'}
+                                  </div>
+                                  <div className="flex items-center gap-1 text-xs text-gray-500">
+                                    <div className="flex text-yellow-400">
+                                      {'★'.repeat(review.rating || 0)}
+                                      {'☆'.repeat(5 - (review.rating || 0))}
+                                    </div>
+                                    <span className="ml-1">{review.rating}/5</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            <div
+                              className="text-sm text-gray-700 mt-2 prose prose-sm max-w-none"
+                              dangerouslySetInnerHTML={{ __html: review.content || 'Không có nội dung đánh giá' }}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center py-6 text-gray-500 text-sm">
+                      Chưa có đánh giá nào
+                    </div>
+                  )}
                 </div>
               </section>
 
@@ -629,6 +811,11 @@ export default function ProductDetailModal() {
         }}
       />
       <CheckoutOverlay isOpen={showCheckout} onClose={() => setShowCheckout(false)} />
+      {copyToast.visible && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-black text-white text-xs px-4 py-2 rounded-full shadow-lg z-[120]">
+          {copyToast.message}
+        </div>
+      )}
     </div>
   )
 }

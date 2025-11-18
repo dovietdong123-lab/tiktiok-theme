@@ -18,11 +18,22 @@ interface ProductFormProps {
   productId?: number
 }
 
+type ReviewForm = {
+  id?: number
+  user_name: string
+  avatar: string
+  rating: number
+  content: string
+  status: 'pending' | 'approved' | 'rejected'
+}
+
 export default function ProductForm({ onSubmit, initialData, loading: externalLoading = false, productId }: ProductFormProps) {
   const [loading, setLoading] = useState(externalLoading)
   const [fetchingData, setFetchingData] = useState(false)
   const [showMediaLibrary, setShowMediaLibrary] = useState(false)
   const [showGalleryLibrary, setShowGalleryLibrary] = useState(false)
+  const [showReviewMediaLibrary, setShowReviewMediaLibrary] = useState(false)
+  const [reviewMediaIndex, setReviewMediaIndex] = useState<number | null>(null)
   const [categories, setCategories] = useState<Array<{ id: number; name: string }>>([])
   const [loadingCategories, setLoadingCategories] = useState(false)
   const [toast, setToast] = useState<{ isOpen: boolean; message: string; type: 'success' | 'error' | 'info' }>({
@@ -48,7 +59,27 @@ export default function ProductForm({ onSubmit, initialData, loading: externalLo
       name: string
       values: Array<{ value: string; image?: string; color?: string; size?: string }>
     }>,
+    reviews: [] as Array<{
+      id?: number
+      user_name: string
+      avatar: string
+      rating: number
+      content: string
+      status: 'pending' | 'approved' | 'rejected'
+    }>,
   })
+
+  const normalizeReviews = (reviews: any): ReviewForm[] => {
+    if (!Array.isArray(reviews)) return []
+    return reviews.map((review: any) => ({
+      id: review.id,
+      user_name: review.user_name || '',
+      avatar: review.avatar || '',
+      rating: review.rating || 5,
+      content: review.content || '',
+      status: review.status || 'approved',
+    }))
+  }
 
   // Fetch product data when productId is provided
   useEffect(() => {
@@ -137,6 +168,7 @@ export default function ProductForm({ onSubmit, initialData, loading: externalLo
                     }))
                   : []
                 : [],
+              reviews: normalizeReviews(product.reviews),
             })
             console.log('Product loaded:', product.name)
           } else {
@@ -255,6 +287,7 @@ export default function ProductForm({ onSubmit, initialData, loading: externalLo
               }))
             : []
           : [],
+        reviews: normalizeReviews(initialData.reviews),
       })
     }
   }, [initialData])
@@ -288,26 +321,43 @@ export default function ProductForm({ onSubmit, initialData, loading: externalLo
     })
   }
 
+  const handleReviewFieldChange = (index: number, field: keyof ReviewForm, value: any) => {
+    setFormData((prev) => {
+      const reviews = [...prev.reviews]
+      if (!reviews[index]) return prev
+      reviews[index] = {
+        ...reviews[index],
+        [field]: field === 'rating' ? Math.max(1, Math.min(5, Number(value) || 1)) : value,
+      }
+      return { ...prev, reviews }
+    })
+  }
+
+  const addReview = () => {
+    setFormData((prev) => ({
+      ...prev,
+      reviews: [
+        ...prev.reviews,
+        {
+          user_name: '',
+          avatar: '',
+          rating: 5,
+          content: '',
+          status: 'approved',
+        },
+      ],
+    }))
+  }
+
+  const removeReview = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      reviews: prev.reviews.filter((_, i) => i !== index),
+    }))
+  }
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-
-    // ✅ FIX 3: Get latest HTML from Quill editor to ensure align styles are included
-    // ReactQuill's onChange may not always include align styles immediately
-    let finalDescription = formData.description
-    try {
-      // Try to get HTML from Quill editor directly
-      const editorEl = document.querySelector('.ql-editor')
-      if (editorEl) {
-        const editorHTML = editorEl.innerHTML || formData.description
-        // Use editor HTML if it exists (has align styles)
-        if (editorHTML) {
-          finalDescription = editorHTML
-        }
-      }
-    } catch (error) {
-      console.warn('Could not get HTML from editor:', error)
-      // Fallback to formData.description
-    }
 
     // Auto generate slug from name if empty
     let slug = formData.slug
@@ -340,7 +390,7 @@ export default function ProductForm({ onSubmit, initialData, loading: externalLo
 
     const submitData = {
       ...formData,
-      description: finalDescription, // Use final description with align styles
+      description: formData.description,
       slug,
       price,
       regular_price: regularPrice,
@@ -349,6 +399,14 @@ export default function ProductForm({ onSubmit, initialData, loading: externalLo
       stock: parseInt(String(formData.stock)) || 0,
       gallery: gallery.length > 0 ? JSON.stringify(gallery) : null,
       attributes: formData.attributes,
+      reviews: formData.reviews.map((review) => ({
+        id: review.id,
+        user_name: review.user_name,
+        avatar: review.avatar,
+        rating: review.rating || 5,
+        content: review.content,
+        status: review.status || 'approved',
+      })),
     }
 
     // If onSubmit prop is provided, use it (for backward compatibility)
@@ -897,6 +955,112 @@ export default function ProductForm({ onSubmit, initialData, loading: externalLo
           </div>
         </div>
 
+      {/* Reviews */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-semibold">Đánh giá sản phẩm</h2>
+          <button
+            type="button"
+            onClick={addReview}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm"
+          >
+            + Thêm đánh giá
+          </button>
+        </div>
+
+        {formData.reviews.length === 0 ? (
+          <p className="text-gray-500 text-sm text-center py-4 border rounded-lg bg-white">
+            Chưa có đánh giá nào. Nhấn &quot;Thêm đánh giá&quot; để bắt đầu.
+          </p>
+        ) : (
+          <div className="space-y-4">
+            {formData.reviews.map((review, index) => (
+              <div key={index} className="bg-white border rounded-lg shadow-sm p-4 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-gray-900">Đánh giá #{index + 1}</h3>
+                  <button
+                    type="button"
+                    onClick={() => removeReview(index)}
+                    className="text-red-500 hover:text-red-700 text-sm"
+                  >
+                    × Xóa
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Tên khách hàng</label>
+                    <input
+                      type="text"
+                      value={review.user_name}
+                      onChange={(e) => handleReviewFieldChange(index, 'user_name', e.target.value)}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      placeholder="Nguyễn Văn A"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Điểm đánh giá</label>
+                    <select
+                      value={review.rating}
+                      onChange={(e) => handleReviewFieldChange(index, 'rating', parseInt(e.target.value))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      {[5, 4, 3, 2, 1].map((value) => (
+                        <option key={value} value={value}>
+                          {value} sao
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
+                    <select
+                      value={review.status}
+                      onChange={(e) => handleReviewFieldChange(index, 'status', e.target.value as ReviewForm['status'])}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="approved">Hiển thị</option>
+                      <option value="pending">Chờ duyệt</option>
+                      <option value="rejected">Ẩn</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Avatar khách hàng</label>
+                    <div className="flex items-center gap-3">
+                      <div className="w-14 h-14 rounded-full bg-gray-100 border flex items-center justify-center overflow-hidden">
+                        {review.avatar ? (
+                          <img src={review.avatar} alt={review.user_name} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-xs text-gray-400">No image</span>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        className="px-3 py-2 border rounded-lg text-sm text-gray-700 hover:bg-gray-50"
+                        onClick={() => {
+                          setReviewMediaIndex(index)
+                          setShowReviewMediaLibrary(true)
+                        }}
+                      >
+                        Chọn ảnh
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Nội dung đánh giá</label>
+                  <ReactQuillEditor
+                    value={review.content}
+                    onChange={(value) => handleReviewFieldChange(index, 'content', value)}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
         {/* Settings */}
         <div>
           <h2 className="text-xl font-semibold mb-4">Cài đặt</h2>
@@ -1015,6 +1179,22 @@ export default function ProductForm({ onSubmit, initialData, loading: externalLo
             }
           }}
           multiple={false}
+        />
+      )}
+
+      {/* Media Library for Reviews */}
+      {showReviewMediaLibrary && reviewMediaIndex !== null && (
+        <MediaLibrary
+          isOpen={showReviewMediaLibrary}
+          onClose={() => {
+            setShowReviewMediaLibrary(false)
+            setReviewMediaIndex(null)
+          }}
+          onSelect={(url) => {
+            handleReviewFieldChange(reviewMediaIndex, 'avatar', url)
+            setShowReviewMediaLibrary(false)
+            setReviewMediaIndex(null)
+          }}
         />
       )}
 

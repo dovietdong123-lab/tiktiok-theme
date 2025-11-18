@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
-import { query } from '@/lib/db'
+import { query, getPool } from '@/lib/db'
 import { requireAuth } from '@/lib/auth'
+import type { PoolConnection } from 'mysql2/promise'
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic'
@@ -49,9 +50,20 @@ export async function GET(request: Request, { params }: { params: { id: string }
       product.attributes = []
     }
 
+    const reviews = await query(
+      `SELECT id, user_name, avatar, content, rating, status, created_at
+       FROM product_reviews
+       WHERE product_id = ?
+       ORDER BY created_at DESC`,
+      [id]
+    )
+
     return NextResponse.json({
       success: true,
-      data: product,
+      data: {
+        ...product,
+        reviews: Array.isArray(reviews) ? reviews : [],
+      },
     })
   } catch (error: any) {
     return NextResponse.json(
@@ -90,6 +102,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       featured,
       status,
       attributes,
+      reviews,
     } = body
 
     // Auto generate slug if not provided
@@ -114,45 +127,112 @@ export async function PUT(request: Request, { params }: { params: { id: string }
       }
     }
 
+    // Validate price
+    const priceNum = Number(price)
+    if (Number.isNaN(priceNum) || priceNum <= 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Price must be a positive number',
+        },
+        { status: 400 }
+      )
+    }
+
+    // Validate discount
+    if (discount !== undefined) {
+      const discountNum = Number(discount)
+      if (Number.isNaN(discountNum) || discountNum < 0 || discountNum > 100) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Discount must be between 0 and 100',
+          },
+          { status: 400 }
+        )
+      }
+    }
+
+    // Validate stock
+    if (stock !== undefined) {
+      const stockNum = Number(stock)
+      if (Number.isNaN(stockNum) || stockNum < 0) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: 'Stock must be a non-negative number',
+          },
+          { status: 400 }
+        )
+      }
+    }
+
+    // Convert gallery to JSON string if it's an array
+    let galleryJson = gallery
+    if (Array.isArray(gallery)) {
+      galleryJson = JSON.stringify(gallery)
+    }
+
     // Convert attributes array to JSON string
     const attributesJson = Array.isArray(attributes) && attributes.length > 0 ? JSON.stringify(attributes) : null
 
-    await query(
-      `UPDATE products SET
-        name = ?,
-        slug = ?,
-        price = ?,
-        regular_price = ?,
-        discount = ?,
-        image = ?,
-        gallery = ?,
-        description = ?,
-        short_description = ?,
-        category_id = ?,
-        stock = ?,
-        featured = ?,
-        status = ?,
-        attributes = ?,
-        updated_at = NOW()
-      WHERE id = ?`,
-      [
-        name,
-        finalSlug,
-        price,
-        regular_price || price,
-        discount || 0,
-        image || '',
-        gallery || null,
-        description || '',
-        short_description || '',
-        category_id || null,
-        stock || 0,
-        featured ? 1 : 0,
-        status || 'active',
-        attributesJson,
-        id,
-      ]
-    )
+    // Use transaction to ensure atomicity
+    const pool = getPool()
+    const connection = await pool.getConnection()
+    
+    try {
+      await connection.beginTransaction()
+
+      await connection.execute(
+        `UPDATE products SET
+          name = ?,
+          slug = ?,
+          price = ?,
+          regular_price = ?,
+          discount = ?,
+          image = ?,
+          gallery = ?,
+          description = ?,
+          short_description = ?,
+          category_id = ?,
+          stock = ?,
+          featured = ?,
+          status = ?,
+          attributes = ?,
+          updated_at = NOW()
+        WHERE id = ?`,
+        [
+          name,
+          finalSlug,
+          price,
+          regular_price || price,
+          discount || 0,
+          image || '',
+          galleryJson || null,
+          description || '',
+          short_description || '',
+          category_id || null,
+          stock || 0,
+          featured ? 1 : 0,
+          status || 'active',
+          attributesJson,
+          id,
+        ]
+      )
+
+      // Delete old reviews
+      await connection.execute('DELETE FROM product_reviews WHERE product_id = ?', [id])
+      
+      // Insert new reviews
+      await insertReviewsWithConnection(connection, id, reviews)
+
+      await connection.commit()
+    } catch (error: any) {
+      await connection.rollback()
+      throw error
+    } finally {
+      connection.release()
+    }
 
     return NextResponse.json({
       success: true,
@@ -192,6 +272,50 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
         error: error.message || 'Failed to delete product',
       },
       { status: 500 }
+    )
+  }
+}
+
+async function insertReviews(productId: number, reviews: any) {
+  if (!Array.isArray(reviews) || reviews.length === 0) return
+  for (const review of reviews) {
+    if (!review || (!review.user_name && !review.content)) continue
+    const rating = Math.min(5, Math.max(1, Number(review.rating) || 5))
+    const status =
+      review.status === 'pending' || review.status === 'rejected' ? review.status : 'approved'
+    await query(
+      `INSERT INTO product_reviews (product_id, user_name, avatar, content, rating, status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        productId,
+        review.user_name || '',
+        review.avatar || '',
+        review.content || '',
+        rating,
+        status,
+      ]
+    )
+  }
+}
+
+async function insertReviewsWithConnection(connection: PoolConnection, productId: number, reviews: any) {
+  if (!Array.isArray(reviews) || reviews.length === 0) return
+  for (const review of reviews) {
+    if (!review || (!review.user_name && !review.content)) continue
+    const rating = Math.min(5, Math.max(1, Number(review.rating) || 5))
+    const status =
+      review.status === 'pending' || review.status === 'rejected' ? review.status : 'approved'
+    await connection.execute(
+      `INSERT INTO product_reviews (product_id, user_name, avatar, content, rating, status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+      [
+        productId,
+        review.user_name || '',
+        review.avatar || '',
+        review.content || '',
+        rating,
+        status,
+      ]
     )
   }
 }

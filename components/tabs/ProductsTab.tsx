@@ -5,6 +5,9 @@ import ProductCard from '@/components/ProductCard'
 
 interface ProductsTabProps {
   isActive: boolean
+  selectedCategoryId?: number | null
+  selectedCategoryName?: string | null
+  onClearCategory?: () => void
 }
 
 interface Product {
@@ -18,19 +21,29 @@ interface Product {
   sold?: number
 }
 
-export default function ProductsTab({ isActive }: ProductsTabProps) {
+export default function ProductsTab({
+  isActive,
+  selectedCategoryId,
+  selectedCategoryName,
+  onClearCategory,
+}: ProductsTabProps) {
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (isActive && products.length === 0) {
-      loadProducts()
+    if (isActive) {
+      loadProducts(selectedCategoryId)
     }
-  }, [isActive])
+  }, [isActive, selectedCategoryId])
 
-  const loadProducts = async () => {
+  const loadProducts = async (categoryId?: number | null) => {
     try {
-      const response = await fetch('/api/products')
+      setLoading(true)
+      let url = '/api/products'
+      if (categoryId) {
+        url += `?category=${encodeURIComponent(String(categoryId))}`
+      }
+      const response = await fetch(url)
       const data = await response.json()
       if (data.success) {
         setProducts(data.data)
@@ -57,6 +70,21 @@ export default function ProductsTab({ isActive }: ProductsTabProps) {
       className="transform translate-x-0 transition-transform duration-300 ease-in-out z-10"
     >
       <div className="p-4 overflow-y-auto h-full">
+        {selectedCategoryId && (
+          <div className="flex items-center justify-between mb-4 text-sm bg-gray-100 border border-gray-200 rounded-lg px-3 py-2">
+            <div>
+              Đang xem danh mục:{' '}
+              <span className="font-medium text-gray-800">{selectedCategoryName || 'Không xác định'}</span>
+            </div>
+            <button
+              type="button"
+              onClick={onClearCategory}
+              className="text-blue-600 hover:text-blue-800 text-xs font-medium"
+            >
+              Xóa lọc
+            </button>
+          </div>
+        )}
         <div id="product-list" className="grid grid-cols-2 gap-4">
           {loading ? (
             // Skeleton loading

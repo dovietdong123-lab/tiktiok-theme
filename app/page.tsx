@@ -13,6 +13,16 @@ import { ProductDetailProvider } from '@/hooks/useProductDetail'
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'home' | 'products' | 'categories'>('home')
+  const [selectedCategory, setSelectedCategory] = useState<{ id: number; name: string } | null>(null)
+
+  const handleCategorySelect = (category: { term_id: number; name: string }) => {
+    setSelectedCategory({ id: category.term_id, name: category.name })
+    setActiveTab('products')
+  }
+
+  const handleClearCategory = () => {
+    setSelectedCategory(null)
+  }
 
   return (
     <ProductDetailProvider>
@@ -24,8 +34,21 @@ export default function Home() {
         
         <main className="pb-20">
           {activeTab === 'home' && <HomeTab isActive={true} />}
-          {activeTab === 'products' && <ProductsTab isActive={true} />}
-          {activeTab === 'categories' && <CategoriesTab isActive={true} />}
+          {activeTab === 'products' && (
+            <ProductsTab
+              isActive={true}
+              selectedCategoryId={selectedCategory?.id}
+              selectedCategoryName={selectedCategory?.name}
+              onClearCategory={handleClearCategory}
+            />
+          )}
+          {activeTab === 'categories' && (
+            <CategoriesTab
+              isActive={true}
+              onCategorySelect={handleCategorySelect}
+              activeCategoryId={selectedCategory?.id || null}
+            />
+          )}
         </main>
 
         <ProductDetailModal />

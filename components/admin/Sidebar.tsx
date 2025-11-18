@@ -36,6 +36,11 @@ const menuItems: MenuItem[] = [
     icon: '🛒',
   },
   {
+    name: 'Mã giảm giá',
+    href: '/admin/coupons',
+    icon: '🎟️',
+  },
+  {
     name: 'Cài đặt',
     href: '/admin/settings',
     icon: '⚙️',

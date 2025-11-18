@@ -1,10 +1,37 @@
 import { NextResponse } from 'next/server'
 import { query } from '@/lib/db'
 
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    // Lấy danh sách sản phẩm từ database
-    const products = await query(`
+    const { searchParams } = new URL(request.url)
+    const searchQuery = searchParams.get('search') || searchParams.get('q')
+    const categoryIdParam = searchParams.get('category') || searchParams.get('category_id')
+    const categorySlug = searchParams.get('category_slug')
+
+    const whereClauses: string[] = [`status = 'active'`]
+    const params: any[] = []
+
+    if (searchQuery && searchQuery.trim()) {
+      const likeQuery = `%${searchQuery.trim()}%`
+      whereClauses.push('(name LIKE ? OR slug LIKE ?)')
+      params.push(likeQuery, likeQuery)
+    }
+
+    if (categoryIdParam) {
+      const categoryId = Number(categoryIdParam)
+      if (!Number.isNaN(categoryId)) {
+        whereClauses.push('category_id = ?')
+        params.push(categoryId)
+      }
+    } else if (categorySlug && categorySlug.trim()) {
+      whereClauses.push('category_id = (SELECT id FROM categories WHERE slug = ? LIMIT 1)')
+      params.push(categorySlug.trim())
+    }
+
+    const whereSql = whereClauses.length ? `WHERE ${whereClauses.join(' AND ')}` : ''
+
+    const products = await query(
+      `
       SELECT 
         id,
         slug,
@@ -16,9 +43,11 @@ export async function GET() {
         sold,
         created_at
       FROM products
-      WHERE status = 'active'
+      ${whereSql}
       ORDER BY created_at DESC
-    `)
+    `,
+      params
+    )
 
     return NextResponse.json({
       success: true,
@@ -26,7 +55,7 @@ export async function GET() {
     })
   } catch (error: any) {
     console.error('Error fetching products:', error)
-    
+
     // Fallback to mock data if database fails
     const mockProducts = [
       {
@@ -40,7 +69,7 @@ export async function GET() {
         sold: 500,
       },
     ]
-    
+
     return NextResponse.json({
       success: true,
       data: mockProducts,

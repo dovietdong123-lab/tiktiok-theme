@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { query } from '@/lib/db'
+import { fetchActiveCoupons } from '@/lib/coupons'
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   try {
@@ -148,6 +149,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
         content,
         rating,
         user_name,
+        avatar,
         created_at
       FROM product_reviews
       WHERE product_id = ? AND status = 'approved'
@@ -156,12 +158,15 @@ export async function GET(request: Request, { params }: { params: { id: string }
       [product.id]
     )
 
+    const coupons = await fetchActiveCoupons()
+
     const responseData = {
       ...product,
       gallery,
       variants: variants,
       recommended: Array.isArray(recommended) ? recommended : [],
       reviews: Array.isArray(reviews) ? reviews : [],
+      coupons,
     }
 
     console.log('Response data variants:', responseData.variants)

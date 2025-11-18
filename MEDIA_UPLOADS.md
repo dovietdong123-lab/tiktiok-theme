@@ -32,7 +32,7 @@ BLOB_READ_WRITE_TOKEN=vercel_blob_rw_xxx
 
 | Lỗi | Nguyên nhân | Cách xử lý |
 |-----|-------------|-----------|
-| `ENOENT: no such file or directory, mkdir '/var/task/public/uploads'` | Đang chạy trên Vercel (read-only FS) nhưng chưa cấu hình `BLOB_READ_WRITE_TOKEN`. | Tạo token blob và thêm vào env. |
+| `BLOB_READ_WRITE_TOKEN is required on Vercel...` hoặc `ENOENT: .../public/uploads` | Đang chạy trên Vercel (read-only FS) nhưng chưa cấu hình `BLOB_READ_WRITE_TOKEN`. | Tạo token Blob RW và thêm vào env, rồi redeploy. |
 | Upload thành công nhưng ảnh không xuất hiện | URL trả về `/uploads/...` nhưng file không được deploy. | Với Vercel, phải dùng Blob. |
 | Không chọn được ảnh từ Media Library | Chưa đăng nhập admin hoặc token hết hạn. | Đăng nhập lại `/admin/login`. |
 

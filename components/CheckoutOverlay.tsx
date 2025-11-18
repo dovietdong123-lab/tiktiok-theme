@@ -44,6 +44,18 @@ export default function CheckoutOverlay({ isOpen, onClose, directProduct }: Chec
   // UI state
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showThankYouModal, setShowThankYouModal] = useState(false)
+  const [couponInput, setCouponInput] = useState('')
+  const [appliedCoupon, setAppliedCoupon] = useState<{
+    coupon: {
+      code: string
+      discount_type: 'percent' | 'fixed'
+      discount_value: number
+    }
+    discountAmount: number
+    finalAmount: number
+  } | null>(null)
+  const [couponMessage, setCouponMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [couponLoading, setCouponLoading] = useState(false)
 
   useEffect(() => {
     async function loadSettings() {
@@ -71,6 +83,9 @@ export default function CheckoutOverlay({ isOpen, onClose, directProduct }: Chec
       setCustomerPhone('')
       setCustomerAddress('')
       setErrors({ name: '', phone: '', address: '' })
+      setCouponInput('')
+      setAppliedCoupon(null)
+      setCouponMessage(null)
       setShowThankYouModal(false)
       
       // Nếu có directProduct, sử dụng nó thay vì load từ cart
@@ -146,6 +161,10 @@ export default function CheckoutOverlay({ isOpen, onClose, directProduct }: Chec
       { subtotal: 0, count: 0 }
     )
   }, [cart])
+
+  const subtotal = cartSummary.subtotal
+  const discountAmount = appliedCoupon?.discountAmount || 0
+  const finalTotal = Math.max(0, subtotal - discountAmount)
 
   const updateQuantity = async (index: number, delta: number) => {
     const item = cart[index]
@@ -258,6 +277,7 @@ export default function CheckoutOverlay({ isOpen, onClose, directProduct }: Chec
           variant: item.variant,
           attributes: item.attributes,
         })),
+        couponCode: appliedCoupon?.coupon.code || null,
       }
 
       // Create order
@@ -289,6 +309,9 @@ export default function CheckoutOverlay({ isOpen, onClose, directProduct }: Chec
         // Show thank you modal
         setShowThankYouModal(true)
         setCart([])
+        setAppliedCoupon(null)
+        setCouponInput('')
+        setCouponMessage(null)
       } else {
         alert('Lỗi: ' + (result.error || 'Không thể tạo đơn hàng'))
       }
@@ -298,6 +321,43 @@ export default function CheckoutOverlay({ isOpen, onClose, directProduct }: Chec
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const handleApplyCoupon = async () => {
+    if (!couponInput.trim()) {
+      setCouponMessage({ type: 'error', text: 'Vui lòng nhập mã giảm giá' })
+      return
+    }
+    if (subtotal <= 0) {
+      setCouponMessage({ type: 'error', text: 'Giỏ hàng trống' })
+      return
+    }
+    setCouponLoading(true)
+    setCouponMessage(null)
+    try {
+      const response = await fetch('/api/coupons', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: couponInput.trim(), subtotal }),
+      })
+      const result = await response.json()
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Không thể áp dụng mã giảm giá')
+      }
+      setAppliedCoupon(result.data)
+      setCouponMessage({ type: 'success', text: 'Đã áp dụng mã giảm giá' })
+    } catch (error: any) {
+      setAppliedCoupon(null)
+      setCouponMessage({ type: 'error', text: error.message || 'Mã giảm giá không hợp lệ' })
+    } finally {
+      setCouponLoading(false)
+    }
+  }
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null)
+    setCouponMessage(null)
+    setCouponInput('')
   }
 
   const handleCloseThankYou = () => {
@@ -417,16 +477,55 @@ export default function CheckoutOverlay({ isOpen, onClose, directProduct }: Chec
 
           {/* Voucher Section */}
           <div className="bg-white px-5 py-4 border-b-8 border-gray-100">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <span className="text-red-500 text-lg mr-3">🎫</span>
-                <span className="text-sm text-gray-900">Giảm giá từ {storeName}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="bg-green-600 text-white text-xs px-2 py-1 rounded-full">Freeship</span>
-                <span className="text-gray-400">›</span>
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-red-500 text-lg">🎫</span>
+              <div>
+                <p className="text-sm font-semibold text-gray-900">Giảm giá từ {storeName}</p>
+                <p className="text-xs text-gray-500">Nhập mã để được giảm giá thêm</p>
               </div>
             </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={couponInput}
+                onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                className="flex-1 border rounded-lg px-3 py-2 text-sm uppercase focus:ring focus:ring-pink-200"
+                placeholder="Nhập mã giảm giá"
+              />
+              {appliedCoupon ? (
+                <button
+                  type="button"
+                  className="px-3 py-2 text-sm rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50"
+                  onClick={handleRemoveCoupon}
+                >
+                  Hủy
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="px-4 py-2 text-sm rounded-lg bg-pink-600 text-white font-semibold disabled:opacity-50"
+                  onClick={handleApplyCoupon}
+                  disabled={couponLoading}
+                >
+                  {couponLoading ? 'Đang áp dụng...' : 'Áp dụng'}
+                </button>
+              )}
+            </div>
+            {couponMessage && (
+              <p
+                className={`text-xs mt-2 ${
+                  couponMessage.type === 'success' ? 'text-green-600' : 'text-red-500'
+                }`}
+              >
+                {couponMessage.text}
+              </p>
+            )}
+            {appliedCoupon && (
+              <div className="mt-2 text-xs text-green-600">
+                Đã áp dụng mã {appliedCoupon.coupon.code} • Tiết kiệm{' '}
+                {formatPrice(appliedCoupon.discountAmount)}
+              </div>
+            )}
           </div>
 
           {/* Order Summary */}
@@ -435,18 +534,24 @@ export default function CheckoutOverlay({ isOpen, onClose, directProduct }: Chec
             <div className="space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-700">Tổng phụ sản phẩm</span>
-                <span className="text-gray-900">{formatPrice(cartSummary.subtotal)}</span>
+                <span className="text-gray-900">{formatPrice(subtotal)}</span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-gray-700">Tổng phụ vận chuyển</span>
                 <span className="text-gray-900">0đ</span>
               </div>
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-sm text-green-600">
+                  <span>Giảm giá</span>
+                  <span>-{formatPrice(discountAmount)}</span>
+                </div>
+              )}
               <div className="flex justify-between items-end mb-4 pt-3 border-t border-gray-200">
                 <div>
                   <p className="text-base text-gray-900">Tổng ({cartSummary.count} mặt hàng)</p>
                   <p className="text-xs text-red-500">Tiết kiệm 26%</p>
                 </div>
-                <span className="text-lg font-semibold text-red-500">{formatPrice(cartSummary.subtotal)}</span>
+                <span className="text-lg font-semibold text-red-500">{formatPrice(finalTotal)}</span>
               </div>
             </div>
           </div>
@@ -543,7 +648,7 @@ export default function CheckoutOverlay({ isOpen, onClose, directProduct }: Chec
           <div className="px-5 py-3 border-b">
             <div className="flex justify-between items-center">
               <span className="font-semibold">Tổng cộng:</span>
-              <span className="font-bold text-lg text-red-600">{formatPrice(cartSummary.subtotal)}</span>
+              <span className="font-bold text-lg text-red-600">{formatPrice(finalTotal)}</span>
             </div>
           </div>
           <div className="p-5">

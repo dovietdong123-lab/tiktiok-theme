@@ -1,13 +1,242 @@
 'use client'
 
+import { useEffect, useMemo, useState } from 'react'
 import AdminLayout from '@/components/admin/AdminLayout'
 
+type OrderStatus = 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
+
+interface OrderItem {
+  id: number
+  product_id: number
+  product_name: string
+  product_image?: string
+  price: number
+  quantity: number
+  subtotal: number
+}
+
+interface Order {
+  id: number
+  customer_name: string
+  customer_phone: string
+  customer_address: string
+  total_amount: number
+  discount_amount: number
+  final_amount: number
+  coupon_code?: string | null
+  status: OrderStatus
+  created_at: string
+  updated_at: string
+  item_count: number
+  items: OrderItem[]
+}
+
+const STATUS_OPTIONS: { value: 'all' | OrderStatus; label: string }[] = [
+  { value: 'all', label: 'Tất cả trạng thái' },
+  { value: 'pending', label: 'Chờ xử lý' },
+  { value: 'processing', label: 'Đang xử lý' },
+  { value: 'shipped', label: 'Đang giao' },
+  { value: 'delivered', label: 'Đã giao' },
+  { value: 'cancelled', label: 'Đã hủy' },
+]
+
+const STATUS_BADGE: Record<OrderStatus, { label: string; className: string }> = {
+  pending: { label: 'Chờ xử lý', className: 'bg-yellow-100 text-yellow-700' },
+  processing: { label: 'Đang xử lý', className: 'bg-blue-100 text-blue-700' },
+  shipped: { label: 'Đang giao', className: 'bg-purple-100 text-purple-700' },
+  delivered: { label: 'Đã giao', className: 'bg-green-100 text-green-700' },
+  cancelled: { label: 'Đã hủy', className: 'bg-red-100 text-red-700' },
+}
+
 export default function OrdersPage() {
+  const [orders, setOrders] = useState<Order[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [statusFilter, setStatusFilter] = useState<'all' | OrderStatus>('all')
+
+  useEffect(() => {
+    fetchOrders(statusFilter)
+  }, [statusFilter])
+
+  const fetchOrders = async (status: 'all' | OrderStatus) => {
+    try {
+      setLoading(true)
+      setError(null)
+      const token = localStorage.getItem('admin_token')
+      let url = '/api/admin/orders'
+      if (status !== 'all') {
+        url += `?status=${status}`
+      }
+
+      const response = await fetch(url, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : '',
+        },
+        credentials: 'include',
+      })
+
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        if (response.status === 401) {
+          window.location.href = '/admin/login'
+          return
+        }
+        throw new Error(result.error || 'Không thể tải danh sách đơn hàng')
+      }
+
+      setOrders(result.data || [])
+    } catch (err: any) {
+      console.error('Error fetching orders:', err)
+      setOrders([])
+      setError(err.message || 'Đã xảy ra lỗi khi tải đơn hàng')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const renderSkeleton = () => (
+    <div className="space-y-4">
+      {Array.from({ length: 3 }).map((_, index) => (
+        <div key={index} className="border rounded-lg bg-white shadow animate-pulse">
+          <div className="flex items-center justify-between border-b px-5 py-4">
+            <div className="h-4 w-32 bg-gray-200 rounded" />
+            <div className="h-8 w-24 bg-gray-200 rounded-full" />
+          </div>
+          <div className="px-5 py-4 space-y-3">
+            <div className="h-4 bg-gray-100 rounded w-3/4" />
+            <div className="h-4 bg-gray-100 rounded w-1/2" />
+            <div className="space-y-2">
+              <div className="h-3 bg-gray-100 rounded w-full" />
+              <div className="h-3 bg-gray-100 rounded w-5/6" />
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+
+  const formattedOrders = useMemo(
+    () =>
+      orders.map((order) => ({
+        ...order,
+        createdLabel: new Date(order.created_at).toLocaleString('vi-VN'),
+        updatedLabel: new Date(order.updated_at).toLocaleString('vi-VN'),
+        subtotalLabel: Number(order.total_amount || 0).toLocaleString('vi-VN') + 'đ',
+        discountLabel: Number(order.discount_amount || 0).toLocaleString('vi-VN') + 'đ',
+        totalLabel: Number((order.final_amount ?? order.total_amount) || 0).toLocaleString('vi-VN') + 'đ',
+      })),
+    [orders]
+  )
+
   return (
     <AdminLayout title="Đơn hàng">
-      <div className="bg-white rounded-lg shadow p-6">
-        <p className="text-gray-600">Danh sách đơn hàng sẽ được hiển thị ở đây.</p>
+      <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900">Danh sách đơn hàng</h1>
+          <p className="text-sm text-gray-500">
+            {loading ? 'Đang tải...' : `Tổng cộng ${orders.length} đơn hàng`}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <label htmlFor="order-status-filter" className="text-sm font-medium text-gray-600">
+            Lọc trạng thái
+          </label>
+          <select
+            id="order-status-filter"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as 'all' | OrderStatus)}
+            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+          >
+            {STATUS_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
+
+      {error && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
+      {loading ? (
+        renderSkeleton()
+      ) : formattedOrders.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-gray-300 bg-white px-5 py-10 text-center text-gray-500">
+          Chưa có đơn hàng nào{' '}
+          {statusFilter !== 'all' ? `ở trạng thái "${STATUS_BADGE[statusFilter].label}"` : 'được ghi nhận' }.
+        </div>
+      ) : (
+        <div className="space-y-5">
+          {formattedOrders.map((order) => {
+            const badge = STATUS_BADGE[order.status]
+            return (
+              <div key={order.id} className="rounded-xl border bg-white shadow-sm">
+                <div className="flex flex-wrap items-center gap-3 border-b px-5 py-4">
+                  <div className="flex flex-1 flex-col">
+                    <span className="text-sm text-gray-500">Mã đơn</span>
+                    <span className="text-lg font-semibold text-gray-900">#{order.id}</span>
+                  </div>
+                <div className="flex flex-col text-sm text-gray-500">
+                  <span>Tạo lúc {order.createdLabel}</span>
+                  <span>Cập nhật {order.updatedLabel}</span>
+                </div>
+                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${badge.className}`}>
+                  {badge.label}
+                </span>
+                <div className="text-right">
+                  <span className="text-sm text-gray-500">Tổng thanh toán</span>
+                  <div className="text-xl font-bold text-gray-900">{order.totalLabel}</div>
+                  <div className="text-xs text-gray-500">Tạm tính: {order.subtotalLabel}</div>
+                  {Number(order.discount_amount || 0) > 0 && (
+                    <div className="text-xs text-green-600">
+                      Giảm: -{order.discountLabel}
+                      {order.coupon_code ? ` (${order.coupon_code})` : ''}
+                    </div>
+                  )}
+                </div>
+                </div>
+
+                <div className="grid gap-4 px-5 py-4 md:grid-cols-3">
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-500">Khách hàng</p>
+                    <p className="mt-1 text-sm font-semibold text-gray-900">{order.customer_name}</p>
+                    <p className="text-sm text-gray-600">📞 {order.customer_phone}</p>
+                    <p className="text-sm text-gray-600">📍 {order.customer_address}</p>
+                  </div>
+                  <div className="md:col-span-2">
+                    <p className="text-xs uppercase tracking-wide text-gray-500">
+                      Sản phẩm ({order.item_count})
+                    </p>
+                    <div className="mt-2 space-y-2">
+                      {order.items.slice(0, 3).map((item) => (
+                        <div key={item.id} className="flex items-start justify-between rounded border px-3 py-2 text-sm">
+                          <div className="flex-1 pr-3">
+                            <p className="font-medium text-gray-900">{item.product_name}</p>
+                            <p className="text-xs text-gray-500">SL: {item.quantity}</p>
+                          </div>
+                          <div className="text-right text-sm text-gray-700">
+                            {(item.subtotal || 0).toLocaleString('vi-VN')}đ
+                          </div>
+                        </div>
+                      ))}
+                      {order.items.length > 3 && (
+                        <p className="text-xs text-gray-400">
+                          +{order.items.length - 3} sản phẩm khác
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </AdminLayout>
   )
 }
