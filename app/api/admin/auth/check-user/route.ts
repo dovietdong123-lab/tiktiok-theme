@@ -2,13 +2,22 @@ import { NextResponse } from 'next/server'
 import { query } from '@/lib/db'
 import crypto from 'crypto'
 
+interface AdminUser {
+  id: number
+  username: string
+  password_hash: string
+  role: string
+  status: string
+  created_at?: string
+}
+
 // Endpoint để kiểm tra user trong database
 export async function GET() {
   try {
     // Get all admin users
     const users = await query(
       'SELECT id, username, password_hash, role, status, created_at FROM admin_users ORDER BY id'
-    )
+    ) as AdminUser[]
 
     // Test password hash
     const testPassword = 'admin123'
@@ -20,7 +29,7 @@ export async function GET() {
 
     // Check admin user specifically
     const adminUser = Array.isArray(users) 
-      ? users.find((u: any) => u.username === 'admin')
+      ? users.find((u: AdminUser) => u.username === 'admin')
       : null
 
     return NextResponse.json({
