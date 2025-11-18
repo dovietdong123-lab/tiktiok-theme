@@ -53,16 +53,6 @@ function rowsToObject(rows: any[]) {
 
 export async function GET(request: Request) {
   try {
-    const token = await getToken(request)
-    if (!token) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const userId = await verifyToken(token)
-    if (!userId) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
-    }
-
     await ensureSettingsTable()
     const rows = (await query('SELECT setting_key, setting_value FROM store_settings')) as any[]
     const data = rowsToObject(rows)

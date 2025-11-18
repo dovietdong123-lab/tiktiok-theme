@@ -23,6 +23,23 @@ export default function HomeTab({ isActive }: HomeTabProps) {
   const [featuredProducts, setFeaturedProducts] = useState<Product[]>([])
   const [recommendedProducts, setRecommendedProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
+  const [storeName, setStoreName] = useState('TikTiok Shop')
+
+  useEffect(() => {
+    async function loadSettings() {
+      try {
+        const response = await fetch('/api/settings')
+        const data = await response.json()
+        if (response.ok && data.success && data.data?.storeName) {
+          setStoreName(data.data.storeName)
+        }
+      } catch (error) {
+        console.warn('Failed to load store settings', error)
+      }
+    }
+
+    loadSettings()
+  }, [])
 
   useEffect(() => {
     if (isActive) {
@@ -76,9 +93,7 @@ export default function HomeTab({ isActive }: HomeTabProps) {
         {/* Featured Products */}
         <div className="flex justify-between items-center mb-3">
           <h2 className="text-base font-semibold">Sản phẩm hàng đầu</h2>
-          <a href="#" className="text-sm text-blue-500 hover:underline">
-            Xem thêm
-          </a>
+          <span className="text-xs text-gray-500">{storeName}</span>
         </div>
 
         <div className="grid grid-cols-3 gap-3 items-end" id="featured-products">

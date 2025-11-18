@@ -15,12 +15,29 @@ export default function CartSidebar() {
   const [isOpen, setIsOpen] = useState(false)
   const [cart, setCart] = useState<CartItem[]>([])
   const [isEditMode, setIsEditMode] = useState(false)
+  const [storeName, setStoreName] = useState('TikTiok Shop')
 
   useEffect(() => {
     loadCart()
     // Listen for cart updates
     window.addEventListener('cartUpdated', loadCart)
     return () => window.removeEventListener('cartUpdated', loadCart)
+  }, [])
+
+  useEffect(() => {
+    async function loadSettings() {
+      try {
+        const response = await fetch('/api/settings')
+        const data = await response.json()
+        if (response.ok && data.success && data.data?.storeName) {
+          setStoreName(data.data.storeName)
+        }
+      } catch (error) {
+        console.warn('Failed to load store settings', error)
+      }
+    }
+
+    loadSettings()
   }, [])
 
   const loadCart = async () => {
@@ -144,7 +161,7 @@ export default function CartSidebar() {
         {/* Store Section */}
         <div className="px-4 py-3 border-b bg-gray-50">
           <div className="flex items-center">
-            <span className="font-semibold text-sm shop-name">TikTiok Shop ok</span>
+            <span className="font-semibold text-sm shop-name">{storeName}</span>
           </div>
         </div>
 
