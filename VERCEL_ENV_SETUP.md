@@ -54,6 +54,12 @@
    - Value: `https://your-app.vercel.app` (URL của app trên Vercel)
    - Environment: Chọn tất cả
 
+   **Biến 8 (nếu dùng thư viện ảnh trên Vercel):**
+   - Key: `BLOB_READ_WRITE_TOKEN`
+   - Value: token RW từ [Vercel Blob](https://vercel.com/dashboard/storage/blob)
+   - Environment: Chọn tất cả
+   - Ghi chú: Bắt buộc để upload ảnh vì Vercel không cho ghi file hệ thống
+
 3. Sau mỗi lần thêm, click nút **"Save"** hoặc **"Add"**
 
 ### Bước 4: Redeploy

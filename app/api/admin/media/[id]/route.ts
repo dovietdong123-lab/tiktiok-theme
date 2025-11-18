@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { query } from '@/lib/db'
 import { unlink } from 'fs/promises'
 import { join } from 'path'
+import { del } from '@vercel/blob'
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic'
@@ -72,13 +73,24 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
 
     const mediaItem = media[0]
 
-    // Delete file from filesystem
-    try {
-      const filepath = join(process.cwd(), 'public', mediaItem.url)
-      await unlink(filepath)
-    } catch (error) {
-      // File might not exist, continue with database deletion
-      console.error('Error deleting file:', error)
+    const fileUrl: string = mediaItem.url || ''
+
+    if (fileUrl.startsWith('http')) {
+      if (process.env.BLOB_READ_WRITE_TOKEN) {
+        try {
+          await del(fileUrl, { token: process.env.BLOB_READ_WRITE_TOKEN })
+        } catch (error) {
+          console.error('Error deleting blob:', error)
+        }
+      }
+    } else {
+      try {
+        const relativePath = fileUrl.startsWith('/') ? fileUrl.substring(1) : fileUrl
+        const filepath = join(process.cwd(), relativePath)
+        await unlink(filepath)
+      } catch (error) {
+        console.error('Error deleting file:', error)
+      }
     }
 
     // Delete from database

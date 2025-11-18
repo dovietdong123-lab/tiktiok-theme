@@ -3,6 +3,7 @@ import { query } from '@/lib/db'
 import { writeFile, mkdir } from 'fs/promises'
 import { join } from 'path'
 import { existsSync } from 'fs'
+import { put } from '@vercel/blob'
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic'
@@ -154,23 +155,35 @@ export async function POST(request: Request) {
       )
     }
 
-    // Create uploads directory if it doesn't exist
-    const uploadsDir = join(process.cwd(), 'public', 'uploads')
-    if (!existsSync(uploadsDir)) {
-      await mkdir(uploadsDir, { recursive: true })
-    }
-
     // Generate unique filename
     const timestamp = Date.now()
     const randomStr = Math.random().toString(36).substring(2, 15)
     const extension = file.name.split('.').pop()
     const filename = `${timestamp}-${randomStr}.${extension}`
-    const filepath = join(uploadsDir, filename)
 
     // Convert file to buffer and save
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
-    await writeFile(filepath, buffer)
+
+    let publicUrl = `/uploads/${filename}`
+
+    if (process.env.BLOB_READ_WRITE_TOKEN) {
+      // Upload to Vercel Blob when token is provided (production)
+      const blob = await put(`uploads/${filename}`, buffer, {
+        access: 'public',
+        contentType: file.type || 'application/octet-stream',
+        token: process.env.BLOB_READ_WRITE_TOKEN,
+      })
+      publicUrl = blob.url
+    } else {
+      // Local fallback: save to public/uploads
+      const uploadsDir = join(process.cwd(), 'public', 'uploads')
+      if (!existsSync(uploadsDir)) {
+        await mkdir(uploadsDir, { recursive: true })
+      }
+      const filepath = join(uploadsDir, filename)
+      await writeFile(filepath, buffer)
+    }
 
     // Get image dimensions (basic check)
     let width = null
