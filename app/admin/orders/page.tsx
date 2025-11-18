@@ -53,6 +53,7 @@ export default function OrdersPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [statusFilter, setStatusFilter] = useState<'all' | OrderStatus>('all')
+  const [updatingStatus, setUpdatingStatus] = useState<number | null>(null)
 
   useEffect(() => {
     fetchOrders(statusFilter)
@@ -92,6 +93,46 @@ export default function OrdersPage() {
       setError(err.message || 'Đã xảy ra lỗi khi tải đơn hàng')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const updateOrderStatus = async (orderId: number, newStatus: OrderStatus) => {
+    try {
+      setUpdatingStatus(orderId)
+      const token = localStorage.getItem('admin_token')
+      const response = await fetch(`/api/admin/orders/${orderId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: token ? `Bearer ${token}` : '',
+        },
+        credentials: 'include',
+        body: JSON.stringify({ status: newStatus }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok || !result.success) {
+        if (response.status === 401) {
+          window.location.href = '/admin/login'
+          return
+        }
+        throw new Error(result.error || 'Không thể cập nhật trạng thái đơn hàng')
+      }
+
+      // Update local state
+      setOrders((prevOrders) =>
+        prevOrders.map((order) =>
+          order.id === orderId
+            ? { ...order, status: newStatus, updated_at: new Date().toISOString() }
+            : order
+        )
+      )
+    } catch (err: any) {
+      console.error('Error updating order status:', err)
+      alert(err.message || 'Đã xảy ra lỗi khi cập nhật trạng thái')
+    } finally {
+      setUpdatingStatus(null)
     }
   }
 
@@ -185,9 +226,23 @@ export default function OrdersPage() {
                   <span>Tạo lúc {order.createdLabel}</span>
                   <span>Cập nhật {order.updatedLabel}</span>
                 </div>
-                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${badge.className}`}>
-                  {badge.label}
-                </span>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={order.status}
+                    onChange={(e) => updateOrderStatus(order.id, e.target.value as OrderStatus)}
+                    disabled={updatingStatus === order.id}
+                    className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {Object.entries(STATUS_BADGE).map(([value, { label }]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                  {updatingStatus === order.id && (
+                    <span className="text-xs text-gray-500">Đang cập nhật...</span>
+                  )}
+                </div>
                 <div className="text-right">
                   <span className="text-sm text-gray-500">Tổng thanh toán</span>
                   <div className="text-xl font-bold text-gray-900">{order.totalLabel}</div>
