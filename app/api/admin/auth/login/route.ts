@@ -3,6 +3,14 @@ import { query } from '@/lib/db'
 import { sessions } from '@/lib/sessions'
 import crypto from 'crypto'
 
+interface AdminUser {
+  id: number
+  username: string
+  password_hash: string
+  role: string
+  status: string
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json()
@@ -22,7 +30,7 @@ export async function POST(request: Request) {
     const users = await query(
       'SELECT id, username, password_hash, role, status FROM admin_users WHERE username = ?',
       [username]
-    )
+    ) as AdminUser[]
 
     if (!Array.isArray(users) || users.length === 0) {
       console.error('Login failed: User not found', { username })
@@ -36,7 +44,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const user = users[0] as any
+    const user = users[0]
 
     // Check status
     if (user.status !== 'active') {
