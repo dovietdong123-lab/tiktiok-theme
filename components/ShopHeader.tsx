@@ -29,7 +29,7 @@ export default function ShopHeader() {
   const storeName = settings.storeName || 'TikTiok Shop'
 
   return (
-    <div className="flex items-center justify-between border rounded-lg p-4 max-w-md bg-white">
+    <div className="flex items-center justify-between border border-gray-200 rounded-xl p-4 w-full bg-white">
       <div className="flex items-center gap-3">
         <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden">
           <img src="/logo.png" alt="Shop Logo" className="w-full h-full object-cover rounded-full" />
