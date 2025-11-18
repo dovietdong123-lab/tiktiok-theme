@@ -144,7 +144,7 @@ export default function CartSidebar() {
         {/* Store Section */}
         <div className="px-4 py-3 border-b bg-gray-50">
           <div className="flex items-center">
-            <span className="font-semibold text-sm shop-name">TikTiok Shop</span>
+            <span className="font-semibold text-sm shop-name">TikTiok Shop ok</span>
           </div>
         </div>
 

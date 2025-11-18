@@ -10,7 +10,7 @@ export default function ShopHeader() {
         </div>
         <div>
           <div className="flex items-center gap-1">
-            <span className="font-medium shop-name">TikTiok Shop</span>
+            <span className="font-medium shop-name">TikTiok Shop ok</span>
             <svg className="w-4 h-4 text-gray-400" viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
             </svg>
