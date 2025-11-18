@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import AdminLayout from '@/components/admin/AdminLayout'
+import Toast from '@/components/admin/Toast'
 
 type SettingsForm = {
   storeName: string
@@ -33,8 +34,16 @@ export default function SettingsPage() {
   const [formData, setFormData] = useState<SettingsForm>(DEFAULT_SETTINGS)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [toast, setToast] = useState<{
+    isOpen: boolean
+    message: string
+    type: 'success' | 'error' | 'info'
+  }>({ isOpen: false, message: '', type: 'success' })
+
+  const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
+    setToast({ isOpen: true, message, type })
+  }
 
   useEffect(() => {
     async function loadSettings() {
@@ -65,10 +74,14 @@ export default function SettingsPage() {
             }, {} as Partial<SettingsForm>),
           }))
         } else {
-          setError(data.error || 'Không thể tải cài đặt')
+          const message = data.error || 'Không thể tải cài đặt'
+          setError(message)
+          showToast(message, 'error')
         }
       } catch (err: any) {
-        setError(err.message || 'Không thể tải cài đặt')
+        const message = err.message || 'Không thể tải cài đặt'
+        setError(message)
+        showToast(message, 'error')
       } finally {
         setLoading(false)
       }
@@ -87,7 +100,6 @@ export default function SettingsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setSaving(true)
-    setStatusMessage(null)
     setError(null)
 
     try {
@@ -108,12 +120,16 @@ export default function SettingsPage() {
 
       const data = await response.json()
       if (response.ok && data.success) {
-        setStatusMessage('Đã lưu cài đặt thành công.')
+        showToast('Đã lưu cài đặt thành công.', 'success')
       } else {
-        setError(data.error || 'Không thể lưu cài đặt.')
+        const message = data.error || 'Không thể lưu cài đặt.'
+        setError(message)
+        showToast(message, 'error')
       }
     } catch (err: any) {
-      setError(err.message || 'Không thể lưu cài đặt.')
+      const message = err.message || 'Không thể lưu cài đặt.'
+      setError(message)
+      showToast(message, 'error')
     } finally {
       setSaving(false)
     }
@@ -121,14 +137,17 @@ export default function SettingsPage() {
 
   return (
     <AdminLayout title="Cài đặt cửa hàng">
+      <Toast
+        isOpen={toast.isOpen}
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast((prev) => ({ ...prev, isOpen: false }))}
+      />
       <div className="max-w-4xl mx-auto">
         {loading ? (
           <div className="bg-white p-8 rounded-lg shadow text-center">Đang tải cài đặt...</div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-8">
-            {statusMessage && (
-              <div className="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded">{statusMessage}</div>
-            )}
             {error && (
               <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded">{error}</div>
             )}
