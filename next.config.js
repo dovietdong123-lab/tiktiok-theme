@@ -15,8 +15,8 @@ const nextConfig = {
       },
     ],
   },
-  // Enable standalone output for better Vercel deployment
-  output: 'standalone',
+  // Note: Removed 'standalone' output as it conflicts with dynamic routes
+  // Vercel handles deployment automatically
 }
 
 module.exports = nextConfig
