@@ -199,7 +199,6 @@ export async function POST(request: Request) {
     const folderId = formData.get('folder_id') as string | null
 
     // Save to database
-    const publicUrl = `/uploads/${filename}`
     const result = await query(
       `INSERT INTO media (filename, original_name, url, mime_type, file_size, width, height, uploaded_by, folder_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
