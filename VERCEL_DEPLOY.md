@@ -17,18 +17,29 @@
 
 Vercel không hỗ trợ MySQL trực tiếp. Bạn cần sử dụng một trong các giải pháp sau:
 
-### Option 1: Sử dụng PlanetScale (Recommended)
+### Option 1: Sử dụng TiDB Cloud (Recommended - FREE) ⭐
+- **URL:** https://tidbcloud.com
+- **Free tier:** Tối đa 5 clusters miễn phí, MySQL compatible
+- **Setup:**
+  1. Đăng ký tại https://tidbcloud.com
+  2. Tạo Serverless cluster (free)
+  3. Lấy connection string
+  4. Import schema từ `database/schema.sql`
+- **Xem chi tiết:** Xem file `MYSQL_FREE_OPTIONS.md`
+
+### Option 2: Sử dụng PlanetScale
 - Truy cập https://planetscale.com
-- Tạo database mới
+- Tạo database mới (kiểm tra free tier còn không)
 - Lấy connection string
 - Import schema từ `database/schema.sql`
 
-### Option 2: Sử dụng Railway, Supabase, hoặc các MySQL hosting khác
-- Tạo database instance
+### Option 3: Sử dụng Railway
+- Truy cập https://railway.app
+- Tạo MySQL service ($5 credit free mỗi tháng)
 - Lấy connection string
 - Import schema
 
-### Option 3: Sử dụng Vercel Postgres (cần migrate từ MySQL sang PostgreSQL)
+### Option 4: Sử dụng Vercel Postgres (cần migrate từ MySQL sang PostgreSQL)
 
 ## Bước 3: Deploy lên Vercel
 
