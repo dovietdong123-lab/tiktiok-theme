@@ -60,8 +60,11 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url)
-    const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '50')
+    // Pagination with safe defaults
+    const rawPage = parseInt(searchParams.get('page') || '1', 10)
+    const rawLimit = parseInt(searchParams.get('limit') || '50', 10)
+    const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1
+    const limit = Number.isFinite(rawLimit) && rawLimit > 0 ? rawLimit : 50
     const offset = (page - 1) * limit
     const folderId = searchParams.get('folder_id')
 
@@ -72,8 +75,8 @@ export async function GET(request: Request) {
          FROM media
          WHERE folder_id = ?
          ORDER BY created_at DESC
-         LIMIT ? OFFSET ?`,
-        [folderId, limit, offset]
+         LIMIT ${limit} OFFSET ${offset}`,
+        [folderId]
       )
     } else {
       media = await query(
@@ -81,8 +84,7 @@ export async function GET(request: Request) {
          FROM media
          WHERE folder_id IS NULL
          ORDER BY created_at DESC
-         LIMIT ? OFFSET ?`,
-        [limit, offset]
+         LIMIT ${limit} OFFSET ${offset}`
       )
     }
 
