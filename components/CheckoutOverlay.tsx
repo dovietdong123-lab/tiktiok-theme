@@ -27,6 +27,7 @@ export default function CheckoutOverlay({ isOpen, onClose, directProduct }: Chec
   const [cart, setCart] = useState<CartItem[]>([])
   const [isAnimating, setIsAnimating] = useState(true)
   const [isClosing, setIsClosing] = useState(false)
+  const [storeName, setStoreName] = useState('TikTiok Shop')
   
   // Form state
   const [customerName, setCustomerName] = useState('')
@@ -43,6 +44,21 @@ export default function CheckoutOverlay({ isOpen, onClose, directProduct }: Chec
   // UI state
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showThankYouModal, setShowThankYouModal] = useState(false)
+
+  useEffect(() => {
+    async function loadSettings() {
+      try {
+        const response = await fetch('/api/settings')
+        const data = await response.json()
+        if (response.ok && data.success && data.data?.storeName) {
+          setStoreName(data.data.storeName)
+        }
+      } catch (error) {
+        console.warn('Failed to load store settings', error)
+      }
+    }
+    loadSettings()
+  }, [])
 
   useEffect(() => {
     if (isOpen) {
@@ -404,7 +420,7 @@ export default function CheckoutOverlay({ isOpen, onClose, directProduct }: Chec
             <div className="flex items-center justify-between">
               <div className="flex items-center">
                 <span className="text-red-500 text-lg mr-3">🎫</span>
-                <span className="text-sm text-gray-900">Giảm giá từ TikTok Shop</span>
+                <span className="text-sm text-gray-900">Giảm giá từ {storeName}</span>
               </div>
               <div className="flex items-center gap-2">
                 <span className="bg-green-600 text-white text-xs px-2 py-1 rounded-full">Freeship</span>
