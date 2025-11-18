@@ -1,0 +1,1032 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import dynamic from 'next/dynamic'
+import MediaLibrary from './MediaLibrary'
+import Toast from './Toast'
+
+// Dynamic import ReactQuillEditor để tránh SSR issues
+const ReactQuillEditor = dynamic(() => import('./ReactQuillEditor'), { 
+  ssr: false,
+  loading: () => <div className="rounded-lg bg-white p-4 border border-gray-300" style={{ minHeight: '200px' }}><p className="text-gray-500">Đang tải editor...</p></div>
+})
+
+interface ProductFormProps {
+  onSubmit?: (data: any) => void
+  initialData?: any
+  loading?: boolean
+  productId?: number
+}
+
+export default function ProductForm({ onSubmit, initialData, loading: externalLoading = false, productId }: ProductFormProps) {
+  const [loading, setLoading] = useState(externalLoading)
+  const [fetchingData, setFetchingData] = useState(false)
+  const [showMediaLibrary, setShowMediaLibrary] = useState(false)
+  const [showGalleryLibrary, setShowGalleryLibrary] = useState(false)
+  const [categories, setCategories] = useState<Array<{ id: number; name: string }>>([])
+  const [loadingCategories, setLoadingCategories] = useState(false)
+  const [toast, setToast] = useState<{ isOpen: boolean; message: string; type: 'success' | 'error' | 'info' }>({
+    isOpen: false,
+    message: '',
+    type: 'success',
+  })
+  const [formData, setFormData] = useState({
+    name: '',
+    slug: '',
+    price: '',
+    regular_price: '',
+    discount: 0,
+    image: '',
+    gallery: '',
+    description: '',
+    short_description: '',
+    category_id: '',
+    stock: 0,
+    featured: false,
+    status: 'active',
+    attributes: [] as Array<{
+      name: string
+      values: Array<{ value: string; image?: string; color?: string; size?: string }>
+    }>,
+  })
+
+  // Fetch product data when productId is provided
+  useEffect(() => {
+    if (productId && !initialData) {
+      const fetchProduct = async () => {
+        try {
+          setFetchingData(true)
+          const token = localStorage.getItem('admin_token') || document.cookie
+            .split('; ')
+            .find((row) => row.startsWith('admin_token='))
+            ?.split('=')[1]
+
+          const headers: HeadersInit = {
+            'Content-Type': 'application/json',
+          }
+          if (token) {
+            headers['Authorization'] = `Bearer ${token}`
+          }
+
+          const response = await fetch(`/api/admin/products/${productId}`, {
+            headers,
+            credentials: 'include',
+          })
+          const result = await response.json()
+          console.log('Product API response:', { status: response.status, result })
+          if (response.ok && result.success) {
+            const product = result.data
+            // Tính discount tự động từ price và regular_price
+            const price = parseFloat(product.price) || 0
+            const regularPrice = parseFloat(product.regular_price) || price
+            let discount = 0
+            if (regularPrice > 0 && price < regularPrice) {
+              discount = Math.round(((regularPrice - price) / regularPrice) * 100)
+            }
+
+            setFormData({
+              name: product.name || '',
+              slug: product.slug || '',
+              price: product.price || '',
+              regular_price: product.regular_price || '',
+              discount: discount,
+              image: product.image || '',
+              gallery: Array.isArray(product.gallery)
+                ? JSON.stringify(product.gallery)
+                : typeof product.gallery === 'string' && product.gallery.startsWith('[')
+                ? product.gallery
+                : product.gallery || '',
+              description: product.description || '',
+              short_description: product.short_description || '',
+              category_id: product.category_id || '',
+              stock: product.stock || 0,
+              featured: product.featured || false,
+              status: product.status || 'active',
+              attributes: Array.isArray(product.attributes)
+                ? product.attributes.map((attr: any) => ({
+                    name: attr.name,
+                    values: Array.isArray(attr.values)
+                      ? attr.values.map((v: any) =>
+                          typeof v === 'string'
+                            ? { value: v, image: '', color: '', size: '' }
+                            : {
+                                value: v.value || v,
+                                image: v.image || '',
+                                color: v.color || '',
+                                size: v.size || '',
+                              }
+                        )
+                      : [],
+                  }))
+                : product.attributes
+                ? typeof product.attributes === 'string'
+                  ? JSON.parse(product.attributes).map((attr: any) => ({
+                      name: attr.name,
+                      values: Array.isArray(attr.values)
+                        ? attr.values.map((v: any) =>
+                            typeof v === 'string'
+                              ? { value: v, image: '', color: '', size: '' }
+                              : {
+                                  value: v.value || v,
+                                  image: v.image || '',
+                                  color: v.color || '',
+                                  size: v.size || '',
+                                }
+                          )
+                        : [],
+                    }))
+                  : []
+                : [],
+            })
+            console.log('Product loaded:', product.name)
+          } else {
+            console.error('Error fetching product:', result.error || 'Unknown error')
+            if (response.status === 401) {
+              window.location.href = '/admin/login'
+            } else {
+              setToast({ isOpen: true, message: 'Không thể tải dữ liệu sản phẩm: ' + (result.error || 'Unknown error'), type: 'error' })
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching product:', error)
+          setToast({ isOpen: true, message: 'Lỗi khi tải dữ liệu sản phẩm', type: 'error' })
+        } finally {
+          setFetchingData(false)
+        }
+      }
+      fetchProduct()
+    }
+  }, [productId, initialData])
+
+  // Fetch categories
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        setLoadingCategories(true)
+        // Get token from localStorage or cookie
+        const token = localStorage.getItem('admin_token') || document.cookie
+          .split('; ')
+          .find((row) => row.startsWith('admin_token='))
+          ?.split('=')[1]
+
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json',
+        }
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`
+        }
+
+        const response = await fetch('/api/admin/categories', {
+          headers,
+        })
+        const data = await response.json()
+        if (data.success && Array.isArray(data.data)) {
+          setCategories(data.data)
+        }
+      } catch (error) {
+        console.error('Error fetching categories:', error)
+      } finally {
+        setLoadingCategories(false)
+      }
+    }
+    fetchCategories()
+  }, [])
+
+  useEffect(() => {
+    if (initialData) {
+      // Tính discount tự động từ price và regular_price
+      const price = parseFloat(initialData.price) || 0
+      const regularPrice = parseFloat(initialData.regular_price) || price
+      let discount = 0
+      if (regularPrice > 0 && price < regularPrice) {
+        discount = Math.round(((regularPrice - price) / regularPrice) * 100)
+      }
+
+      setFormData({
+        name: initialData.name || '',
+        slug: initialData.slug || '',
+        price: initialData.price || '',
+        regular_price: initialData.regular_price || '',
+        discount: discount,
+        image: initialData.image || '',
+        gallery: Array.isArray(initialData.gallery)
+          ? JSON.stringify(initialData.gallery)
+          : typeof initialData.gallery === 'string' && initialData.gallery.startsWith('[')
+          ? initialData.gallery
+          : initialData.gallery || '',
+        description: initialData.description || '',
+        short_description: initialData.short_description || '',
+        category_id: initialData.category_id || '',
+        stock: initialData.stock || 0,
+        featured: initialData.featured || false,
+        status: initialData.status || 'active',
+        attributes: Array.isArray(initialData.attributes)
+          ? initialData.attributes.map((attr: any) => ({
+              name: attr.name,
+              values: Array.isArray(attr.values)
+                ? attr.values.map((v: any) =>
+                    typeof v === 'string'
+                      ? { value: v, image: '', color: '', size: '' }
+                      : {
+                          value: v.value || v,
+                          image: v.image || '',
+                          color: v.color || '',
+                          size: v.size || '',
+                        }
+                  )
+                : [],
+            }))
+          : initialData.attributes
+          ? typeof initialData.attributes === 'string'
+            ? JSON.parse(initialData.attributes).map((attr: any) => ({
+                name: attr.name,
+                values: Array.isArray(attr.values)
+                  ? attr.values.map((v: any) =>
+                      typeof v === 'string'
+                        ? { value: v, image: '', color: '', size: '' }
+                        : {
+                            value: v.value || v,
+                            image: v.image || '',
+                            color: v.color || '',
+                            size: v.size || '',
+                          }
+                    )
+                  : [],
+              }))
+            : []
+          : [],
+      })
+    }
+  }, [initialData])
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target
+    const checked = (e.target as HTMLInputElement).checked
+
+    setFormData((prev) => {
+      const newData = {
+        ...prev,
+        [name]: type === 'checkbox' ? checked : type === 'number' ? parseFloat(value) || 0 : value,
+      }
+
+      // Tự động tính discount (%) khi price hoặc regular_price thay đổi
+      if (name === 'price' || name === 'regular_price') {
+        const price = name === 'price' ? parseFloat(value) || 0 : parseFloat(prev.price) || 0
+        const regularPrice = name === 'regular_price' ? parseFloat(value) || 0 : parseFloat(prev.regular_price) || 0
+
+        if (regularPrice > 0 && price < regularPrice) {
+          const discountPercent = Math.round(((regularPrice - price) / regularPrice) * 100)
+          newData.discount = discountPercent
+        } else if (regularPrice > 0 && price >= regularPrice) {
+          newData.discount = 0
+        } else {
+          newData.discount = 0
+        }
+      }
+
+      return newData
+    })
+  }
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+
+    // ✅ FIX 3: Get latest HTML from Quill editor to ensure align styles are included
+    // ReactQuill's onChange may not always include align styles immediately
+    let finalDescription = formData.description
+    try {
+      // Try to get HTML from Quill editor directly
+      const editorEl = document.querySelector('.ql-editor')
+      if (editorEl) {
+        const editorHTML = editorEl.innerHTML || formData.description
+        // Use editor HTML if it exists (has align styles)
+        if (editorHTML) {
+          finalDescription = editorHTML
+        }
+      }
+    } catch (error) {
+      console.warn('Could not get HTML from editor:', error)
+      // Fallback to formData.description
+    }
+
+    // Auto generate slug from name if empty
+    let slug = formData.slug
+    if (!slug && formData.name) {
+      slug = formData.name
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/(^-|-$)/g, '')
+    }
+
+    // Parse gallery
+    let gallery = []
+    if (formData.gallery) {
+      try {
+        gallery = JSON.parse(formData.gallery)
+      } catch {
+        gallery = formData.gallery.split(',').map((url) => url.trim()).filter(Boolean)
+      }
+    }
+
+    // Tính discount tự động dựa trên price và regular_price
+    const price = parseFloat(formData.price) || 0
+    const regularPrice = parseFloat(formData.regular_price) || price
+    let discount = 0
+    if (regularPrice > 0 && price < regularPrice) {
+      discount = Math.round(((regularPrice - price) / regularPrice) * 100)
+    }
+
+    const submitData = {
+      ...formData,
+      description: finalDescription, // Use final description with align styles
+      slug,
+      price,
+      regular_price: regularPrice,
+      discount,
+      category_id: formData.category_id ? parseInt(formData.category_id) : null,
+      stock: parseInt(String(formData.stock)) || 0,
+      gallery: gallery.length > 0 ? JSON.stringify(gallery) : null,
+      attributes: formData.attributes,
+    }
+
+    // If onSubmit prop is provided, use it (for backward compatibility)
+    if (onSubmit) {
+      onSubmit(submitData)
+      return
+    }
+
+    // Otherwise, handle submit automatically
+    const handleAutoSubmit = async () => {
+      try {
+        setLoading(true)
+        const token = localStorage.getItem('admin_token') || document.cookie
+          .split('; ')
+          .find((row) => row.startsWith('admin_token='))
+          ?.split('=')[1]
+
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json',
+        }
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`
+        }
+
+        const url = productId ? `/api/admin/products/${productId}` : '/api/admin/products'
+        const method = productId ? 'PUT' : 'POST'
+
+        const response = await fetch(url, {
+          method,
+          headers,
+          credentials: 'include',
+          body: JSON.stringify(submitData),
+        })
+
+        const result = await response.json()
+        console.log('Submit response:', { status: response.status, result })
+
+        if (response.ok && result.success) {
+          const message = productId ? 'Cập nhật sản phẩm thành công!' : 'Tạo sản phẩm thành công!'
+          setToast({ isOpen: true, message, type: 'success' })
+          // Delay redirect để toast kịp hiển thị
+          setTimeout(() => {
+            window.location.href = '/admin/products'
+          }, 1500)
+        } else {
+          setToast({ isOpen: true, message: 'Lỗi: ' + (result.error || 'Unknown error'), type: 'error' })
+        }
+      } catch (error) {
+        console.error('Error submitting product:', error)
+        setToast({ isOpen: true, message: 'Lỗi khi lưu sản phẩm', type: 'error' })
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    handleAutoSubmit()
+  }
+
+  if (fetchingData) {
+    return (
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <div className="text-center py-8">Đang tải dữ liệu sản phẩm...</div>
+      </div>
+    )
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-md p-6">
+      <div className="space-y-6">
+        {/* Basic Info */}
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Thông tin cơ bản</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Tên sản phẩm *
+              </label>
+              <input
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                required
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Slug</label>
+              <input
+                type="text"
+                name="slug"
+                value={formData.slug}
+                onChange={handleChange}
+                placeholder="Tự động tạo từ tên"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Giá bán (₫) *
+              </label>
+              <input
+                type="number"
+                name="price"
+                value={formData.price}
+                onChange={handleChange}
+                required
+                min="0"
+                step="1000"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Giá gốc (₫)
+              </label>
+              <input
+                type="number"
+                name="regular_price"
+                value={formData.regular_price}
+                onChange={handleChange}
+                min="0"
+                step="1000"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Giảm giá (%) <span className="text-xs text-gray-500">(Tự động tính)</span>
+              </label>
+              <input
+                type="number"
+                name="discount"
+                value={formData.discount}
+                readOnly
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 bg-gray-50 cursor-not-allowed"
+                title="Giảm giá được tính tự động dựa trên giá bán và giá gốc"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tồn kho</label>
+              <input
+                type="number"
+                name="stock"
+                value={formData.stock}
+                onChange={handleChange}
+                min="0"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Images */}
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Hình ảnh</h2>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Ảnh chính
+              </label>
+              <div className="flex items-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => setShowMediaLibrary(true)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                >
+                  📚 Chọn từ thư viện
+                </button>
+                {formData.image && (
+                  <span className="text-sm text-gray-600">✓ Đã chọn</span>
+                )}
+              </div>
+              {formData.image && (
+                <div className="mt-3">
+                  <img src={formData.image} alt="Preview" className="w-32 h-32 object-cover rounded border" />
+                  <button
+                    type="button"
+                    onClick={() => setFormData((prev) => ({ ...prev, image: '' }))}
+                    className="mt-2 text-sm text-red-600 hover:text-red-800"
+                  >
+                    Xóa ảnh
+                  </button>
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Gallery
+              </label>
+              <div className="flex items-center gap-4 mb-3">
+                <button
+                  type="button"
+                  onClick={() => setShowGalleryLibrary(true)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                >
+                  📚 Chọn từ thư viện
+                </button>
+                {(() => {
+                  try {
+                    const galleryUrls = formData.gallery ? JSON.parse(formData.gallery) : []
+                    if (Array.isArray(galleryUrls) && galleryUrls.length > 0) {
+                      return <span className="text-sm text-gray-600">✓ Đã chọn {galleryUrls.length} ảnh</span>
+                    }
+                  } catch {
+                    // Not JSON, ignore
+                  }
+                  return null
+                })()}
+              </div>
+              {(() => {
+                try {
+                  const galleryUrls = formData.gallery ? JSON.parse(formData.gallery) : []
+                  if (Array.isArray(galleryUrls) && galleryUrls.length > 0) {
+                    return (
+                      <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 mt-3">
+                        {galleryUrls.map((url: string, index: number) => (
+                          <div key={index} className="relative group">
+                            <img
+                              src={url}
+                              alt={`Gallery ${index + 1}`}
+                              className="w-full aspect-square object-cover rounded border"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const newUrls = galleryUrls.filter((_: string, i: number) => i !== index)
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  gallery: newUrls.length > 0 ? JSON.stringify(newUrls) : '',
+                                }))
+                              }}
+                              className="absolute top-1 right-1 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  }
+                } catch {
+                  // Not JSON, ignore
+                }
+                return null
+              })()}
+            </div>
+          </div>
+        </div>
+
+        {/* Description */}
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Mô tả</h2>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Mô tả ngắn
+              </label>
+              <textarea
+                name="short_description"
+                value={formData.short_description}
+                onChange={handleChange}
+                rows={2}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Mô tả chi tiết (HTML)
+              </label>
+                  <ReactQuillEditor
+                    value={formData.description}
+                    onChange={(value) => setFormData((prev) => ({ ...prev, description: value }))}
+                    placeholder="Nhập mô tả chi tiết sản phẩm..."
+                  />
+            </div>
+          </div>
+        </div>
+
+        {/* Attributes */}
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Thuộc tính sản phẩm</h2>
+          <div className="space-y-4">
+            {/* Add new attribute */}
+            <div className="flex gap-2 mb-4">
+              <input
+                type="text"
+                id="new-attribute-name"
+                placeholder="Tên thuộc tính (VD: Size, Color, Material)"
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    const input = e.target as HTMLInputElement
+                    const name = input.value.trim()
+                    if (name && !formData.attributes.some((attr) => attr.name.toLowerCase() === name.toLowerCase())) {
+                      setFormData((prev) => ({
+                        ...prev,
+                        attributes: [...prev.attributes, { name, values: [] }],
+                      }))
+                      input.value = ''
+                    }
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  const input = document.getElementById('new-attribute-name') as HTMLInputElement
+                  const name = input?.value.trim()
+                  if (name && !formData.attributes.some((attr) => attr.name.toLowerCase() === name.toLowerCase())) {
+                    setFormData((prev) => ({
+                      ...prev,
+                      attributes: [...prev.attributes, { name, values: [] }],
+                    }))
+                    if (input) input.value = ''
+                  }
+                }}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+              >
+                + Thêm thuộc tính
+              </button>
+            </div>
+
+            {/* List of attributes */}
+            {formData.attributes.map((attribute, attrIndex) => (
+              <div key={attrIndex} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="font-semibold text-gray-800">{attribute.name}</h3>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        attributes: prev.attributes.filter((_, i) => i !== attrIndex),
+                      }))
+                    }}
+                    className="text-red-600 hover:text-red-800 text-sm"
+                  >
+                    Xóa thuộc tính
+                  </button>
+                </div>
+
+                {/* Add value to attribute */}
+                <div className="flex gap-2 mb-2">
+                  <input
+                    type="text"
+                    placeholder={`Thêm giá trị cho ${attribute.name} (VD: S, M, L hoặc Đỏ, Xanh)`}
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        const input = e.target as HTMLInputElement
+                        const value = input.value.trim()
+                        if (value && !attribute.values.some((v) => v.value === value)) {
+                          setFormData((prev) => {
+                            const newAttributes = [...prev.attributes]
+                            newAttributes[attrIndex] = {
+                              ...newAttributes[attrIndex],
+                              values: [...newAttributes[attrIndex].values, { value, image: '', color: '', size: '' }],
+                            }
+                            return { ...prev, attributes: newAttributes }
+                          })
+                          input.value = ''
+                        }
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      const input = e.currentTarget.previousElementSibling as HTMLInputElement
+                      const value = input?.value.trim()
+                      if (value && !attribute.values.some((v) => v.value === value)) {
+                        setFormData((prev) => {
+                          const newAttributes = [...prev.attributes]
+                          newAttributes[attrIndex] = {
+                            ...newAttributes[attrIndex],
+                            values: [...newAttributes[attrIndex].values, { value, image: '' }],
+                          }
+                          return { ...prev, attributes: newAttributes }
+                        })
+                        if (input) input.value = ''
+                      }
+                    }}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                  >
+                    Thêm
+                  </button>
+                </div>
+
+                {/* List of values */}
+                {attribute.values.length > 0 && (
+                  <div className="space-y-3">
+                    {attribute.values.map((valueItem, valueIndex) => (
+                      <div key={valueIndex} className="p-4 bg-white rounded-lg border border-gray-200">
+                        <div className="flex items-start gap-4">
+                          {/* Value Image */}
+                          <div className="flex-shrink-0">
+                            {valueItem.image ? (
+                              <div className="relative">
+                                <img
+                                  src={valueItem.image}
+                                  alt={valueItem.value}
+                                  className="w-20 h-20 object-cover rounded border border-gray-300"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setFormData((prev) => {
+                                      const newAttributes = [...prev.attributes]
+                                      newAttributes[attrIndex].values[valueIndex].image = ''
+                                      return { ...prev, attributes: newAttributes }
+                                    })
+                                  }}
+                                  className="absolute -top-1 -right-1 bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setShowMediaLibrary(true)
+                                  ;(window as any).__currentAttributeUpdate = { attrIndex, valueIndex, field: 'image' }
+                                }}
+                                className="w-20 h-20 border-2 border-dashed border-gray-300 rounded flex items-center justify-center text-gray-400 hover:border-blue-500 hover:text-blue-500 transition"
+                              >
+                                📷
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Value Details */}
+                          <div className="flex-1 space-y-3">
+                            {/* Value Name */}
+                            <div>
+                              <label className="block text-xs text-gray-500 mb-1">Tên giá trị</label>
+                              <span className="font-medium text-gray-800">{valueItem.value}</span>
+                            </div>
+
+                            {/* Color Picker */}
+                            <div>
+                              <label className="block text-xs text-gray-500 mb-1">Màu sắc</label>
+                              <div className="flex items-center gap-2">
+                                <input
+                                  type="color"
+                                  value={valueItem.color || '#000000'}
+                                  onChange={(e) => {
+                                    setFormData((prev) => {
+                                      const newAttributes = [...prev.attributes]
+                                      newAttributes[attrIndex].values[valueIndex].color = e.target.value
+                                      return { ...prev, attributes: newAttributes }
+                                    })
+                                  }}
+                                  className="w-12 h-10 border border-gray-300 rounded cursor-pointer"
+                                />
+                                <input
+                                  type="text"
+                                  placeholder="#000000 hoặc tên màu"
+                                  value={valueItem.color || ''}
+                                  onChange={(e) => {
+                                    setFormData((prev) => {
+                                      const newAttributes = [...prev.attributes]
+                                      newAttributes[attrIndex].values[valueIndex].color = e.target.value
+                                      return { ...prev, attributes: newAttributes }
+                                    })
+                                  }}
+                                  className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                                {valueItem.color && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setFormData((prev) => {
+                                        const newAttributes = [...prev.attributes]
+                                        newAttributes[attrIndex].values[valueIndex].color = ''
+                                        return { ...prev, attributes: newAttributes }
+                                      })
+                                    }}
+                                    className="text-red-600 hover:text-red-800 text-sm"
+                                  >
+                                    ×
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Size */}
+                            <div>
+                              <label className="block text-xs text-gray-500 mb-1">Kích thước</label>
+                              <input
+                                type="text"
+                                placeholder="VD: 100x100, Small, Medium..."
+                                value={valueItem.size || ''}
+                                onChange={(e) => {
+                                  setFormData((prev) => {
+                                    const newAttributes = [...prev.attributes]
+                                    newAttributes[attrIndex].values[valueIndex].size = e.target.value
+                                    return { ...prev, attributes: newAttributes }
+                                  })
+                                }}
+                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Remove Value Button */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setFormData((prev) => {
+                                const newAttributes = [...prev.attributes]
+                                newAttributes[attrIndex] = {
+                                  ...newAttributes[attrIndex],
+                                  values: newAttributes[attrIndex].values.filter((_, i) => i !== valueIndex),
+                                }
+                                return { ...prev, attributes: newAttributes }
+                              })
+                            }}
+                            className="text-red-600 hover:text-red-800 px-2 self-start"
+                          >
+                            × Xóa
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+
+            {formData.attributes.length === 0 && (
+              <p className="text-gray-500 text-sm text-center py-4">
+                Chưa có thuộc tính nào. Thêm thuộc tính để bắt đầu.
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Settings */}
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Cài đặt</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Danh mục
+              </label>
+              <select
+                name="category_id"
+                value={formData.category_id}
+                onChange={handleChange}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                disabled={loadingCategories}
+              >
+                <option value="">-- Chọn danh mục --</option>
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {category.name}
+                  </option>
+                ))}
+              </select>
+              {loadingCategories && (
+                <p className="text-xs text-gray-500 mt-1">Đang tải danh mục...</p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Trạng thái</label>
+              <select
+                name="status"
+                value={formData.status}
+                onChange={handleChange}
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="active">Hoạt động</option>
+                <option value="inactive">Không hoạt động</option>
+                <option value="deleted">Đã xóa</option>
+              </select>
+            </div>
+
+            <div className="flex items-center">
+              <input
+                type="checkbox"
+                name="featured"
+                checked={formData.featured}
+                onChange={handleChange}
+                className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+              />
+              <label className="ml-2 text-sm font-medium text-gray-700">
+                Sản phẩm nổi bật
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {/* Submit */}
+        <div className="flex justify-end space-x-4 pt-4 border-t">
+          <a
+            href="/admin/products"
+            className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+          >
+            Hủy
+          </a>
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {loading ? 'Đang lưu...' : initialData ? 'Cập nhật' : 'Tạo mới'}
+          </button>
+        </div>
+      </div>
+
+      {/* Media Library Modal for Main Image */}
+      {showMediaLibrary && !(window as any).__currentAttributeUpdate && (
+        <MediaLibrary
+          isOpen={showMediaLibrary}
+          onClose={() => setShowMediaLibrary(false)}
+          onSelect={(url) => setFormData((prev) => ({ ...prev, image: url }))}
+        />
+      )}
+
+      {/* Media Library Modal for Gallery */}
+      <MediaLibrary
+        isOpen={showGalleryLibrary}
+        onClose={() => setShowGalleryLibrary(false)}
+        multiple={true}
+        onSelect={() => {}} // Required prop but not used in multiple mode
+        onSelectMultiple={(urls) => {
+          setFormData((prev) => ({
+            ...prev,
+            gallery: JSON.stringify(urls),
+          }))
+        }}
+      />
+
+      {/* Media Library Modal for Attribute Values */}
+      {showMediaLibrary && (window as any).__currentAttributeUpdate && (
+        <MediaLibrary
+          isOpen={showMediaLibrary}
+          onClose={() => {
+            setShowMediaLibrary(false)
+            ;(window as any).__currentAttributeUpdate = null
+          }}
+          onSelect={(url) => {
+            const update = (window as any).__currentAttributeUpdate
+            if (update && update.field === 'image') {
+              setFormData((prev) => {
+                const newAttributes = [...prev.attributes]
+                newAttributes[update.attrIndex].values[update.valueIndex].image = url
+                return { ...prev, attributes: newAttributes }
+              })
+              setShowMediaLibrary(false)
+              ;(window as any).__currentAttributeUpdate = null
+            }
+          }}
+          multiple={false}
+        />
+      )}
+
+      {/* Toast Notification */}
+      <Toast
+        isOpen={toast.isOpen}
+        message={toast.message}
+        type={toast.type}
+        onClose={() => setToast({ ...toast, isOpen: false })}
+      />
+
+    </form>
+  )
+}
+

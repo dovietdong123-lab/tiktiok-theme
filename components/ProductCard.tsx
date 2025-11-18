@@ -1,0 +1,123 @@
+'use client'
+
+import { useRouter } from 'next/navigation'
+
+interface Product {
+  id: number
+  slug?: string
+  name: string
+  price: number
+  regular?: number
+  discount?: number
+  image: string
+  sold?: number
+}
+
+interface ProductCardProps {
+  product: Product
+  rank?: number
+  rankColor?: string
+  height?: string
+  detailed?: boolean
+}
+
+export default function ProductCard({
+  product,
+  rank,
+  rankColor,
+  height = 'h-48',
+  detailed = false,
+}: ProductCardProps) {
+  const router = useRouter()
+
+  const handleClick = () => {
+    // Navigate to product detail page with route
+    const targetSlug = product.slug || String(product.id)
+    const encodedSlug = encodeURIComponent(targetSlug)
+    router.push(`/products/${encodedSlug}`)
+  }
+
+  if (detailed) {
+    return (
+      <div
+        className="border rounded-md overflow-hidden shadow-sm view-detail-btn product-card cursor-pointer hover:shadow-md transition-shadow"
+        data-id={product.id}
+        onClick={handleClick}
+      >
+        <div className="relative">
+          <img
+            src={product.image}
+            alt={product.name}
+            className="w-full h-48 object-cover"
+            loading="lazy"
+          />
+          {product.discount && product.discount > 0 && (
+            <span className="absolute top-2 right-2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded">
+              -{product.discount}%
+            </span>
+          )}
+        </div>
+        <div className="p-2">
+          <h3 className="text-xs font-medium line-clamp-2">{product.name}</h3>
+          <div className="flex items-center space-x-2 mt-1">
+            <span className="text-red-600 font-bold text-sm">
+              {Number(product.price).toLocaleString('vi-VN')}đ
+            </span>
+            {product.regular && product.discount && product.discount > 0 && (
+              <span className="line-through text-gray-400 text-xs">
+                {Number(product.regular).toLocaleString('vi-VN')}đ
+              </span>
+            )}
+          </div>
+          <div className="flex items-center space-x-2 mt-1 text-xs">
+            <span className="bg-green-100 text-green-600 px-1 rounded">Freeship</span>
+            <span className="bg-gray-100 text-gray-600 px-1 rounded">COD</span>
+          </div>
+          <div className="flex items-center text-xs text-gray-500 mt-1">
+            <span className="text-yellow-500 mr-1">★</span> 4.7
+            <span className="ml-2">Đã bán {product.sold || 500}</span>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div
+      className="product-card relative bg-white rounded-lg overflow-hidden shadow-sm p-2 flex flex-col cursor-pointer hover:shadow-md transition-shadow"
+      data-id={product.id}
+      onClick={handleClick}
+    >
+      {rank && (
+        <span
+          className={`absolute top-1 left-1 ${rankColor} text-white text-xs font-bold px-2 py-0.5 rounded`}
+        >
+          {rank}
+        </span>
+      )}
+      <div className="flex-1 flex items-end">
+        <img
+          src={product.image}
+          alt={product.name}
+          className={`w-full ${height} object-cover rounded`}
+          loading="lazy"
+        />
+      </div>
+      <div className="mt-2 space-y-1">
+        <h3 className="text-sm font-medium line-clamp-2">{product.name}</h3>
+        <div className="text-red-500 font-bold">
+          {Number(product.price).toLocaleString('vi-VN')}đ
+        </div>
+        {product.regular && (
+          <div className="text-gray-500 line-through text-xs">
+            {Number(product.regular).toLocaleString('vi-VN')}đ
+          </div>
+        )}
+        {product.discount && product.discount > 0 && (
+          <div className="text-green-600 text-xs font-semibold">-{product.discount}%</div>
+        )}
+      </div>
+    </div>
+  )
+}
+

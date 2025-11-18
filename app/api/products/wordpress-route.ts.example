@@ -1,0 +1,109 @@
+import { NextResponse } from 'next/server'
+import mysql from 'mysql2/promise'
+
+// Ví dụ: Kết nối với WordPress database
+// File này là example, đổi tên thành route.ts để sử dụng
+
+const pool = mysql.createPool({
+  host: process.env.WP_DB_HOST || 'localhost',
+  user: process.env.WP_DB_USER || 'root',
+  password: process.env.WP_DB_PASSWORD || '',
+  database: process.env.WP_DB_NAME || 'wordpress',
+  port: parseInt(process.env.WP_DB_PORT || '3306'),
+})
+
+export async function GET() {
+  try {
+    // Lấy sản phẩm từ WooCommerce (nếu dùng WooCommerce)
+    const [products] = await pool.execute(`
+      SELECT 
+        p.ID as id,
+        p.post_title as name,
+        pm_price.meta_value as price,
+        pm_regular_price.meta_value as regular_price,
+        pm_sale_price.meta_value as sale_price,
+        pm_image.meta_value as image
+      FROM wp_posts p
+      LEFT JOIN wp_postmeta pm_price ON p.ID = pm_price.post_id AND pm_price.meta_key = '_price'
+      LEFT JOIN wp_postmeta pm_regular_price ON p.ID = pm_regular_price.post_id AND pm_regular_price.meta_key = '_regular_price'
+      LEFT JOIN wp_postmeta pm_sale_price ON p.ID = pm_sale_price.post_id AND pm_sale_price.meta_key = '_sale_price'
+      LEFT JOIN wp_postmeta pm_image ON p.ID = pm_image.post_id AND pm_image.meta_key = '_thumbnail_id'
+      WHERE p.post_type = 'product' 
+      AND p.post_status = 'publish'
+      LIMIT 20
+    `)
+
+    // Format data giống với API hiện tại
+    const formattedProducts = (products as any[]).map((p: any) => {
+      const price = parseFloat(p.price) || 0
+      const regular = parseFloat(p.regular_price) || price
+      const discount = regular > price ? Math.round(((regular - price) / regular) * 100) : 0
+
+      return {
+        id: p.id,
+        name: p.name,
+        price: price,
+        regular_price: regular,
+        discount: discount,
+        image: p.image || '/placeholder.jpg',
+        sold: 0, // Có thể lấy từ order meta
+      }
+    })
+
+    return NextResponse.json({
+      success: true,
+      data: formattedProducts,
+    })
+  } catch (error: any) {
+    console.error('Database error:', error)
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message || 'Failed to fetch products',
+      },
+      { status: 500 }
+    )
+  }
+}
+
+// POST - Tạo sản phẩm mới
+export async function POST(request: Request) {
+  try {
+    const body = await request.json()
+    const { name, price, regular_price } = body
+
+    // Insert vào WordPress
+    const [result] = await pool.execute(
+      `INSERT INTO wp_posts (post_title, post_content, post_type, post_status) 
+       VALUES (?, ?, 'product', 'publish')`,
+      [name, '']
+    )
+
+    const productId = (result as any).insertId
+
+    // Insert meta values
+    await pool.execute(
+      `INSERT INTO wp_postmeta (post_id, meta_key, meta_value) VALUES (?, '_price', ?)`,
+      [productId, price]
+    )
+
+    await pool.execute(
+      `INSERT INTO wp_postmeta (post_id, meta_key, meta_value) VALUES (?, '_regular_price', ?)`,
+      [productId, regular_price || price]
+    )
+
+    return NextResponse.json({
+      success: true,
+      data: { id: productId },
+    })
+  } catch (error: any) {
+    return NextResponse.json(
+      {
+        success: false,
+        error: error.message || 'Failed to create product',
+      },
+      { status: 500 }
+    )
+  }
+}
+
