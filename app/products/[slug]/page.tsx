@@ -642,7 +642,7 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
                   </div>
 
                   {/* Product Info */}
-                  <div className="w-full max-w-md mx-auto bg-white rounded p-4">
+                  <div className="w-full max-w-md mx-auto bg-white rounded">
                     <div>
                       <span className="bg-black text-white text-xs px-1 py-0.5 rounded">Mall</span>
                       <span className="text-sm font-medium title">{product.name}</span>
@@ -727,7 +727,7 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
               <section id="danhgia" ref={danhgiaRef} className="section pt-8 scroll-mt-20">
                   <div className="w-full max-w-md mx-auto bg-white rounded">
                     {/* Rating Summary */}
-                    <div className="p-4 border-b">
+                    <div className="border-b">
                       <div className="flex items-center justify-between mb-2">
                         <h2 className="font-bold text-gray-800 text-base">Đánh giá của khách hàng</h2>
                         <a href="#" className="text-blue-500 text-xs">
