@@ -76,9 +76,11 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     const fileUrl: string = mediaItem.url || ''
 
     if (fileUrl.startsWith('http')) {
-      if (process.env.BLOB_READ_WRITE_TOKEN) {
+      // Support both BLOB_READ_WRITE_TOKEN and tiktiok_theme_READ_WRITE_TOKEN
+      const blobToken = process.env.BLOB_READ_WRITE_TOKEN || process.env.tiktiok_theme_READ_WRITE_TOKEN
+      if (blobToken) {
         try {
-          await del(fileUrl, { token: process.env.BLOB_READ_WRITE_TOKEN })
+          await del(fileUrl, { token: blobToken })
         } catch (error) {
           console.error('Error deleting blob:', error)
         }

@@ -167,12 +167,15 @@ export async function POST(request: Request) {
 
     let publicUrl = `/uploads/${filename}`
 
-    if (process.env.BLOB_READ_WRITE_TOKEN) {
+    // Support both BLOB_READ_WRITE_TOKEN and tiktiok_theme_READ_WRITE_TOKEN
+    const blobToken = process.env.BLOB_READ_WRITE_TOKEN || process.env.tiktiok_theme_READ_WRITE_TOKEN
+
+    if (blobToken) {
       // Upload to Vercel Blob when token is provided (production)
       const blob = await put(`uploads/${filename}`, buffer, {
         access: 'public',
         contentType: file.type || 'application/octet-stream',
-        token: process.env.BLOB_READ_WRITE_TOKEN,
+        token: blobToken,
       })
       publicUrl = blob.url
     } else {
@@ -181,7 +184,7 @@ export async function POST(request: Request) {
           {
             success: false,
             error:
-              'BLOB_READ_WRITE_TOKEN is required on Vercel because the filesystem is read-only. Please configure Vercel Blob storage.',
+              'BLOB_READ_WRITE_TOKEN or tiktiok_theme_READ_WRITE_TOKEN is required on Vercel because the filesystem is read-only. Please configure Vercel Blob storage.',
           },
           { status: 500 }
         )
