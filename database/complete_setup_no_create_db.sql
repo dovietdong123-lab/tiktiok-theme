@@ -1,14 +1,16 @@
 -- ============================================
 -- COMPLETE DATABASE SETUP FOR K1 PROJECT (NO CREATE DATABASE)
 -- File này dành cho user không có quyền CREATE DATABASE
--- Import file này vào phpMyAdmin sau khi đã chọn database k1
 -- ============================================
--- LƯU Ý: Trước khi import, hãy chọn database k1 trong phpMyAdmin
--- Hoặc database đã được tạo sẵn bởi admin
+-- HƯỚNG DẪN QUAN TRỌNG:
+-- 1. Yêu cầu admin tạo database "k1" trước
+-- 2. Mở phpMyAdmin
+-- 3. CHỌN database "k1" trong danh sách bên trái (click vào tên database)
+-- 4. Sau đó mới import file này
 -- ============================================
-
--- Sử dụng database (bỏ qua nếu đã chọn database trong phpMyAdmin)
-USE k1;
+-- KHÔNG chạy lệnh USE k1 ở đây vì sẽ gây lỗi
+-- Hãy chọn database trong phpMyAdmin trước khi import
+-- ============================================
 
 -- ============================================
 -- BẢNG CATEGORIES (Danh mục)
