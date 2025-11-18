@@ -214,34 +214,54 @@ export async function DELETE(request: NextRequest) {
   try {
     const sessionId = getSessionId(request)
     const { searchParams } = new URL(request.url)
-    const index = searchParams.get('index')
+    const productId = searchParams.get('productId')
+    const variantParam = searchParams.get('variant')
 
     const cart = carts.get(sessionId) || []
 
-    if (index !== null) {
-      // Xóa item cụ thể
-      const itemIndex = parseInt(index)
-      if (isNaN(itemIndex) || itemIndex < 0 || itemIndex >= cart.length) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Invalid index',
-          },
-          { status: 400 }
-        )
+    if (productId) {
+      // Xóa item cụ thể bằng productId + variant
+      let variant: any = undefined
+      if (variantParam) {
+        try {
+          variant = JSON.parse(decodeURIComponent(variantParam))
+        } catch {
+          // Invalid variant JSON, ignore
+        }
       }
 
-      cart.splice(itemIndex, 1)
-      carts.set(sessionId, cart)
+      const variantKey = normalizeVariant(variant)
+      const itemIndex = cart.findIndex(
+        (item) =>
+          item.productId === Number(productId) &&
+          normalizeVariant(item.variant) === variantKey
+      )
+
+      if (itemIndex >= 0) {
+        cart.splice(itemIndex, 1)
+        carts.set(sessionId, cart)
+      }
     } else {
-      // Xóa toàn bộ giỏ hàng
+      // Xóa toàn bộ giỏ hàng (nếu không có productId)
       carts.set(sessionId, [])
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       data: carts.get(sessionId) || [],
     })
+
+    if (!request.cookies.get('cart_session')) {
+      response.cookies.set('cart_session', sessionId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 30,
+        path: '/',
+      })
+    }
+
+    return response
   } catch (error: any) {
     console.error('Error deleting cart item:', error)
     return NextResponse.json(

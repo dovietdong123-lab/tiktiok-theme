@@ -3,11 +3,17 @@
 import { useState, useEffect } from 'react'
 
 interface CartItem {
-  id: number
-  name: string
-  price: number
-  image: string
+  productId: number
+  productName: string
+  variant?: {
+    label?: string
+    value?: string
+  }
   quantity: number
+  price: number
+  regularPrice?: number
+  discount?: number
+  image: string
   attributes?: Record<string, string>
 }
 
@@ -64,38 +70,79 @@ export default function CartSidebar() {
   }
 
   const updateQuantity = async (index: number, newQuantity: number) => {
+    const item = cart[index]
+    if (!item) return
+
+    const newQty = Math.max(1, newQuantity)
+    
+    // Optimistic update
     const updatedCart = [...cart]
-    if (newQuantity <= 0) {
+    if (newQty <= 0) {
       updatedCart.splice(index, 1)
     } else {
-      updatedCart[index].quantity = newQuantity
+      updatedCart[index] = { ...item, quantity: newQty }
     }
     setCart(updatedCart)
+
     try {
-      await fetch('/api/cart', {
-        method: 'POST',
+      // Use PUT endpoint with productId + variant for proper matching
+      const response = await fetch('/api/cart', {
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: updatedCart }),
+        body: JSON.stringify({
+          productId: item.productId,
+          variant: item.variant,
+          quantity: newQty,
+        }),
       })
-      window.dispatchEvent(new Event('cartUpdated'))
+      
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && Array.isArray(data.data)) {
+          setCart(data.data)
+        }
+        window.dispatchEvent(new Event('cartUpdated'))
+      } else {
+        // Rollback on error
+        loadCart()
+      }
     } catch (error) {
       console.error('Error updating cart:', error)
+      // Rollback on error
+      loadCart()
     }
   }
 
   const removeFromCart = async (index: number) => {
+    const item = cart[index]
+    if (!item) return
+
+    // Optimistic update
     const updatedCart = [...cart]
     updatedCart.splice(index, 1)
     setCart(updatedCart)
+
     try {
-      await fetch('/api/cart', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: updatedCart }),
+      // Use DELETE endpoint with productId + variant
+      const variantParam = item.variant ? `&variant=${encodeURIComponent(JSON.stringify(item.variant))}` : ''
+      const response = await fetch(`/api/cart?productId=${item.productId}${variantParam}`, {
+        method: 'DELETE',
       })
-      window.dispatchEvent(new Event('cartUpdated'))
+      
+      if (response.ok) {
+        const data = await response.json()
+        if (data.success && Array.isArray(data.data)) {
+          setCart(data.data)
+        }
+        window.dispatchEvent(new Event('cartUpdated'))
+      } else {
+        // Rollback on error
+        loadCart()
+      }
     } catch (error) {
       console.error('Error removing from cart:', error)
+      // Rollback on error
+      loadCart()
     }
   }
 
@@ -199,13 +246,18 @@ export default function CartSidebar() {
                 <img
                   src={item.image}
                   className="w-16 h-16 object-cover border rounded-lg flex-shrink-0"
-                  alt={item.name}
+                  alt={item.productName}
                 />
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm leading-tight mb-1">
                     <span className="bg-black text-white text-xs px-1 py-0.5 rounded">Mall</span>
-                    {item.name}
+                    {item.productName}
                   </p>
+                  {item.variant && (
+                    <p className="text-xs text-gray-500 mb-1">
+                      {item.variant.label}: {item.variant.value}
+                    </p>
+                  )}
                   {item.attributes && (
                     <div className="text-xs text-gray-500 mb-2">
                       {Object.entries(item.attributes)
@@ -249,10 +301,36 @@ export default function CartSidebar() {
             <button
               id="deleteSelectedBtn"
               className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-sm"
-              onClick={() => {
-                setCart([])
-                localStorage.setItem('cart', '[]')
-                window.dispatchEvent(new Event('cartUpdated'))
+              onClick={async () => {
+                // Get selected items
+                const checkboxes = document.querySelectorAll('.itemCheckbox:checked') as NodeListOf<HTMLInputElement>
+                const selectedIndices = Array.from(checkboxes).map(cb => parseInt(cb.dataset.index || '0'))
+                
+                if (selectedIndices.length === 0) {
+                  // If nothing selected, clear all
+                  try {
+                    const response = await fetch('/api/cart', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ items: [] }),
+                    })
+                    if (response.ok) {
+                      setCart([])
+                      window.dispatchEvent(new Event('cartUpdated'))
+                    }
+                  } catch (error) {
+                    console.error('Error clearing cart:', error)
+                  }
+                } else {
+                  // Remove selected items
+                  const itemsToRemove = selectedIndices.map(idx => cart[idx]).filter(Boolean)
+                  for (const item of itemsToRemove) {
+                    await removeFromCart(cart.findIndex(c => 
+                      c.productId === item.productId && 
+                      JSON.stringify(c.variant) === JSON.stringify(item.variant)
+                    ))
+                  }
+                }
               }}
             >
               Xóa đã chọn

@@ -176,10 +176,18 @@ export default function CheckoutOverlay({ isOpen, onClose, directProduct }: Chec
     // Lưu giá trị cũ để rollback nếu cần
     const oldCart = [...cart]
 
-    // Cập nhật local state trước
+    // Cập nhật local state trước (optimistic update)
     setCart((prev) => {
       const next = [...prev]
-      next[index] = { ...item, quantity: newQty }
+      // Find item by productId + variant instead of index for safety
+      const itemIndex = next.findIndex(
+        (i) =>
+          i.productId === item.productId &&
+          JSON.stringify(i.variant) === JSON.stringify(item.variant)
+      )
+      if (itemIndex >= 0) {
+        next[itemIndex] = { ...next[itemIndex], quantity: newQty }
+      }
       return next
     })
 
@@ -213,6 +221,9 @@ export default function CheckoutOverlay({ isOpen, onClose, directProduct }: Chec
           // Dispatch event để cập nhật cart count
           window.dispatchEvent(new Event('cartUpdated'))
         }
+      } else {
+        // Rollback nếu lỗi
+        setCart(oldCart)
       }
     } catch (error) {
       console.error('Error updating quantity:', error)
