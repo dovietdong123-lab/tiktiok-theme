@@ -116,7 +116,7 @@ export function animateProductToCart(
       }, 100)
 
       // Animation cho số lượng (cart-count sẽ được cập nhật bởi CartBottomSheet)
-      const cartCountEl = targetElement.querySelector('.cart-count')
+      const cartCountEl = targetElement.querySelector('.cart-count') as HTMLElement | null
       if (cartCountEl) {
         cartCountEl.style.transform = 'scale(1.5)'
         cartCountEl.style.transition = 'transform 0.2s ease-out'
