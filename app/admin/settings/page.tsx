@@ -3,9 +3,11 @@
 import { useEffect, useState } from 'react'
 import AdminLayout from '@/components/admin/AdminLayout'
 import Toast from '@/components/admin/Toast'
+import MediaLibrary from '@/components/admin/MediaLibrary'
 
 type SettingsForm = {
   storeName: string
+  storeLogo: string
   storeDescription: string
   supportEmail: string
   hotline: string
@@ -19,6 +21,7 @@ type SettingsForm = {
 
 const DEFAULT_SETTINGS: SettingsForm = {
   storeName: 'TikTiok Shop',
+  storeLogo: '/logo.png',
   storeDescription: 'TikTok style shopping experience.',
   supportEmail: 'support@example.com',
   hotline: '0123 456 789',
@@ -40,6 +43,7 @@ export default function SettingsPage() {
     message: string
     type: 'success' | 'error' | 'info'
   }>({ isOpen: false, message: '', type: 'success' })
+  const [isMediaLibraryOpen, setIsMediaLibraryOpen] = useState(false)
 
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     setToast({ isOpen: true, message, type })
@@ -193,6 +197,34 @@ export default function SettingsPage() {
                 </div>
               </div>
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Logo cửa hàng</label>
+                <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
+                  <div className="w-20 h-20 rounded-full bg-gray-100 border flex items-center justify-center overflow-hidden">
+                    {formData.storeLogo ? (
+                      <img src={formData.storeLogo} alt="Store logo" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-xs text-gray-400 text-center px-2">Chưa có logo</span>
+                    )}
+                  </div>
+                  <div className="flex-1 w-full">
+                    <input
+                      type="text"
+                      value={formData.storeLogo}
+                      onChange={(e) => handleChange('storeLogo', e.target.value)}
+                      className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="/logo.png hoặc URL hình ảnh"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setIsMediaLibraryOpen(true)}
+                      className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
+                    >
+                      Chọn từ thư viện ảnh
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Mô tả</label>
                 <textarea
                   value={formData.storeDescription}
@@ -272,6 +304,17 @@ export default function SettingsPage() {
           </form>
         )}
       </div>
+      {isMediaLibraryOpen && (
+        <MediaLibrary
+          isOpen={isMediaLibraryOpen}
+          onClose={() => setIsMediaLibraryOpen(false)}
+          multiple={false}
+          onSelect={(url) => {
+            handleChange('storeLogo', url)
+            setIsMediaLibraryOpen(false)
+          }}
+        />
+      )}
     </AdminLayout>
   )
 }

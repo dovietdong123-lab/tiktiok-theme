@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 
 type PublicSettings = {
   storeName?: string
+  storeLogo?: string
   heroBanner?: string
 }
 
@@ -27,12 +28,13 @@ export default function ShopHeader() {
   }, [])
 
   const storeName = settings.storeName || 'TikTiok Shop'
+  const storeLogo = settings.storeLogo || '/logo.png'
 
   return (
     <div className="flex items-center justify-between border border-gray-200 rounded-xl p-4 w-full bg-white">
       <div className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden">
-          <img src="/logo.png" alt="Shop Logo" className="w-full h-full object-cover rounded-full" />
+        <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center overflow-hidden border border-gray-200">
+          <img src={storeLogo} alt="Shop Logo" className="w-full h-full object-cover rounded-full" />
         </div>
         <div>
           <div className="flex items-center gap-1">
