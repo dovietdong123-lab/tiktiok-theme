@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useProductDetail } from '@/hooks/useProductDetail'
 import CartOverlay from '@/components/CartOverlay'
 import CheckoutOverlay from '@/components/CheckoutOverlay'
+import { useRandomizedCount, formatCountAsK } from '@/hooks/useRandomizedCount'
 
 const imageBaseUrl = process.env.NEXT_PUBLIC_IMAGE_BASE_URL || ''
 
@@ -104,6 +105,8 @@ export default function ProductDetailModal() {
   const [flashCountdown, setFlashCountdown] = useState(27099)
   const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>([])
   const [copyToast, setCopyToast] = useState({ visible: false, message: '' })
+  const customerReviewCount = useRandomizedCount('review')
+  const soldCount = useRandomizedCount('sold')
 
   const renderLoadingSkeleton = () => (
     <div className="p-4 space-y-6">
@@ -174,6 +177,8 @@ export default function ProductDetailModal() {
       window.removeEventListener('cartUpdated', handleCartUpdate)
     }
   }, [])
+
+  // randomized counts handled by useRandomizedCount hook
 
   useEffect(() => {
     if (isOpen && productId) {
@@ -501,9 +506,9 @@ export default function ProductDetailModal() {
 
                   <div className="flex items-center gap-2 mt-2 text-xs text-gray-600">
                     <span className="text-yellow-500 font-semibold">★ 4.9</span>
-                    <span>(6,5K)</span>
+                  <span>({customerReviewCount ? customerReviewCount.toLocaleString('vi-VN') : '0'})</span>
                     <span>|</span>
-                    <span>Đã bán 96.6K</span>
+                  <span>Đã bán {soldCount ? formatCountAsK(soldCount) : '0'}</span>
                   </div>
 
                   <div className="mt-3 text-xs">
@@ -618,7 +623,7 @@ export default function ProductDetailModal() {
                   <div className="w-full max-w-md mx-auto bg-white p-4 rounded shadow">
                     <div className="flex items-center justify-between mb-2">
                       <h2 className="font-bold text-gray-800 text-sm">
-                        Đánh giá của khách hàng ({product?.reviews?.length || 0})
+                        Đánh giá của khách hàng ({customerReviewCount ? customerReviewCount.toLocaleString('vi-VN') : '0'})
                       </h2>
                       <a href="#" className="text-blue-500 text-xs">Xem thêm &gt;</a>
                     </div>

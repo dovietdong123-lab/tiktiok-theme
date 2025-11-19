@@ -109,6 +109,29 @@ export default function CartOverlay({ isOpen, onClose, onCheckout }: CartOverlay
     return Number(price).toLocaleString('vi-VN') + 'đ'
   }
 
+  const capitalizeWords = (text?: string) => {
+    if (!text) return ''
+    return text
+      .split(' ')
+      .filter(Boolean)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ')
+  }
+
+  const getVariantLabel = (item: CartItem) => {
+    if (item.variant && (item.variant.label || item.variant.value)) {
+      const label = item.variant.label ? capitalizeWords(item.variant.label) : ''
+      const value = item.variant.value ? capitalizeWords(item.variant.value) : ''
+      return `${label}${label && value ? ' - ' : ''}${value}`
+    }
+    if (item.attributes) {
+      return Object.entries(item.attributes)
+        .map(([key, value]) => `${capitalizeWords(key)}: ${capitalizeWords(String(value))}`)
+        .join(' • ')
+    }
+    return ''
+  }
+
   const calculateTotal = () => {
     return cart.reduce((total, item) => {
       return total + (Number(item.price) || 0) * (parseInt(String(item.quantity), 10) || 0)
@@ -276,61 +299,91 @@ export default function CartOverlay({ isOpen, onClose, onCheckout }: CartOverlay
                   <p className="text-sm text-center mt-1">Hãy thêm sản phẩm vào giỏ hàng</p>
                 </div>
               ) : (
-                cart.map((item, index) => {
-                  const attrHtml = item.variant
-                    ? `${item.variant.label}: ${item.variant.value}`
-                    : Object.keys(item.attributes || {})
-                        .map((key) => `${key}: ${item.attributes[key]}`)
-                        .join(' • ')
+                <div className="space-y-3">
+                  {cart.map((item, index) => {
+                    const variantLabel = getVariantLabel(item)
+                    const regularPrice = Number(item.regularPrice) || 0
+                    const showRegular = regularPrice > Number(item.price)
+                    const showDiscount = item.discount && Number(item.discount) > 0
 
-                  return (
-                    <div
-                      key={index}
-                      className="flex items-start gap-3 py-3 border-b border-gray-100 last:border-b-0"
-                    >
-                      {isEditMode && (
-                        <input
-                          type="checkbox"
-                          className="itemCheckbox mt-2 w-4 h-4 text-blue-600"
-                          checked={selectedItems.has(index)}
-                          onChange={() => toggleSelectItem(index)}
-                        />
-                      )}
-                      <img
-                        src={item.image}
-                        alt={item.productName}
-                        className="w-16 h-16 object-cover border rounded-lg flex-shrink-0"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm leading-tight mb-1">
-                          <span className="bg-black text-white text-xs px-1 py-0.5 rounded mr-1">Mall</span>{' '}
-                          {item.productName}
-                        </p>
-                        {attrHtml && <div className="text-xs text-gray-500 mb-2">{attrHtml}</div>}
-                        <div className="flex items-center justify-between">
-                          <span className="text-red-600 font-semibold">{formatPrice(item.price)}</span>
-                          <div className="inline-flex items-stretch overflow-hidden rounded bg-gray-100 ring-1 ring-gray-200">
-                            <button
-                              className="px-2 text-gray-500 hover:bg-gray-200"
-                              onClick={() => updateQuantity(index, -1)}
-                            >
-                              −
-                            </button>
-                            <div className="w-px my-1 bg-gray-300"></div>
-                            <span className="text-sm font-medium min-w-[33px] text-center">{item.quantity}</span>
-                            <div className="w-px my-1 bg-gray-300"></div>
-                            <button
-                              className="px-2 text-gray-500 hover:bg-gray-200"
-                              onClick={() => updateQuantity(index, 1)}
-                            >
-                              +
-                            </button>
+                    return (
+                      <div key={index} className="flex gap-3">
+                        {isEditMode && (
+                          <input
+                            type="checkbox"
+                            className="itemCheckbox mt-4 w-4 h-4 text-blue-600 flex-shrink-0"
+                            checked={selectedItems.has(index)}
+                            onChange={() => toggleSelectItem(index)}
+                          />
+                        )}
+                        <div className="flex-1">
+                          <div className="px-3 pt-3 pb-4 rounded-xl border border-gray-200 bg-white shadow-sm">
+                            <div className="flex gap-3">
+                              <div className="w-20 h-20 shrink-0 rounded-lg border overflow-hidden bg-gray-50 flex items-center justify-center">
+                                <img src={item.image} alt={item.productName} className="w-full h-full object-cover" />
+                              </div>
+                              <div className="flex-1 min-w-0 space-y-2">
+                                <p className="text-sm font-semibold text-gray-900 line-clamp-2">{item.productName}</p>
+                                {variantLabel && (
+                                  <p className="text-xs text-gray-500">
+                                    <span className="text-gray-400 mr-1">Loại:</span>
+                                    {variantLabel}
+                                  </p>
+                                )}
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[3px] border border-amber-100 bg-amber-50 text-[11px] text-amber-700">
+                                    ✓ Chính hãng 100%
+                                  </span>
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-[3px] border border-emerald-100 bg-emerald-50 text-[11px] text-emerald-700">
+                                    Trả hàng miễn phí
+                                  </span>
+                                </div>
+                                <div className="flex items-center justify-between mt-2">
+                                  <div>
+                                    <div className="text-base font-semibold text-rose-600 leading-tight">
+                                      {formatPrice(item.price)}
+                                    </div>
+                                    {(showRegular || showDiscount) && (
+                                      <div className="flex items-center gap-2 mt-0.5 text-xs text-gray-500">
+                                        {showRegular && (
+                                          <span className="text-xs text-gray-400 line-through">
+                                            {formatPrice(regularPrice)}
+                                          </span>
+                                        )}
+                                        {showDiscount && (
+                                          <span className="text-xs font-semibold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-full">
+                                            -{item.discount}%
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <div className="inline-flex items-stretch overflow-hidden rounded border border-gray-200 bg-gray-50 text-sm">
+                                    <button
+                                      className="px-2.5 py-0.5 text-gray-600 hover:bg-gray-100"
+                                      onClick={() => updateQuantity(index, -1)}
+                                    >
+                                      −
+                                    </button>
+                                    <span className="px-3 py-0.5 text-xs font-semibold border-x border-gray-200 bg-white min-w-[32px] text-center flex items-center justify-center leading-none">
+                                      {item.quantity}
+                                    </span>
+                                    <button
+                                      className="px-2.5 py-0.5 text-gray-600 hover:bg-gray-100"
+                                      onClick={() => updateQuantity(index, 1)}
+                                    >
+                                      +
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  )
-                })
+                    )
+                  })}
+                </div>
               )}
             </div>
 
