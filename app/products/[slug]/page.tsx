@@ -90,6 +90,15 @@ const formatReviewContent = (content?: string): { text: string; images: string[]
   }
 }
 
+const capitalize = (text?: string) => {
+  if (!text) return ''
+  return text
+    .split(' ')
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+}
+
 export default function ProductDetailPage({ params }: { params: { slug: string } }) {
   const router = useRouter()
   const { slug } = params
@@ -541,12 +550,25 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
               <button
                 id="showCartBtn"
                 onClick={() => setShowCart(true)}
-                className="text-xl relative"
+                className="relative w-8 h-8 flex items-center justify-center text-black"
               >
-                🛒
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  className="w-6 h-6"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <circle cx="9" cy="20" r="1.25" />
+                  <circle cx="17" cy="20" r="1.25" />
+                  <path d="M3 4h2l2.4 10.2a1.5 1.5 0 0 0 1.47 1.1h7.26a1.5 1.5 0 0 0 1.47-1.1L20 7H6" />
+                </svg>
                 <span
                   id="cartBadgeq"
-                  className="absolute -top-2 -right-2 bg-yellow-400 text-black text-xs font-bold w-5 h-5 flex items-center justify-center rounded-full cart-count"
+                  className="absolute -top-2 -right-2 bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full cart-count"
                 >
                   {cartCount}
                 </span>
@@ -711,36 +733,47 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
                       Thanh toán khi giao. Trả hàng miễn phí trong 15 ngày
                     </div>
 
-                    <div className="flex items-center justify-between mt-3 border p-2 rounded">
-                      <div className="flex items-center gap-2" id="option-product">
-                        {product.variants && product.variants.length > 0 ? (
-                          <div className="flex gap-2 overflow-x-auto max-w-full">
-                            {product.variants.slice(0, 4).map((variant, idx) => (
+                    {product.variants && product.variants.length > 0 && (
+                      <div className="mt-4">
+                        <p className="font-medium text-sm mb-2">Phiên bản sản phẩm</p>
+                      <div className="flex gap-3 overflow-x-auto pb-1">
+                        {product.variants.map((variant, idx) => {
+                            const variantPrice = variant.price || product.price
+                            const variantRegular = variant.regular || product.regular
+                            const showRegular = variantRegular && variantRegular > variantPrice
+                            const variantImg = variant.image || product.image
+                            return (
                               <div
                                 key={`${variant.label}-${variant.value}-${idx}`}
-                                className="px-2 py-1 border border-gray-200 rounded-md bg-gray-50 text-xs whitespace-nowrap"
+                              className="flex gap-2 p-2 border border-gray-200 rounded-lg bg-gray-50 shadow-sm min-w-[160px]"
                               >
-                                <span className="font-semibold text-gray-800">{variant.value}</span>
-                                <span className="ml-1 text-rose-600 font-bold">
-                                  {formatPrice(variant.price || product.price)}
-                                </span>
+                              <div className="w-10 h-10 rounded-md overflow-hidden bg-white flex-shrink-0 border border-gray-100">
+                                  <img src={variantImg} alt={variant.value} className="w-full h-full object-cover" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                <div className="text-xs text-gray-800">
+                                  {(variant.label ? `${capitalize(variant.label)}: ` : '') + capitalize(variant.value)}
+                                </div>
+                                <div className="flex items-center gap-2 text-xs font-semibold text-gray-900">
+                                  <span className="text-rose-600 text-xs">{formatPrice(variantPrice)}</span>
+                                  {showRegular && (
+                                    <span className="text-[10px] text-gray-400 line-through">
+                                      {formatPrice(variantRegular)}
+                                    </span>
+                                  )}
+                                  {variant.discount > 0 && (
+                                    <span className="text-[10px] text-rose-500 font-semibold">-{variant.discount}%</span>
+                                  )}
+                                </div>
+                                </div>
                               </div>
-                            ))}
-                            {product.variants.length > 4 && (
-                              <span className="text-[11px] text-gray-500 whitespace-nowrap">
-                                +{product.variants.length - 4} lựa chọn khác
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="text-xs text-gray-500">Chọn phiên bản trong giỏ hàng</span>
-                        )}
+                            )
+                          })}
+                        </div>
                       </div>
-                    </div>
+                    )}
 
-                    <div className="mt-3 bg-yellow-50 border border-yellow-200 p-2 text-xs text-yellow-700 rounded">
-                      🔥 Sản phẩm hot • Mỹ phẩm dưỡng da skin care chính hãng
-                    </div>
+                   
 
                     <div className="mt-3">
                       <div className="font-medium text-sm mb-2">Voucher & Khuyến mãi</div>
