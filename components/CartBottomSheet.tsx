@@ -14,6 +14,15 @@ interface Variant {
   image?: string
 }
 
+const capitalize = (text?: string) => {
+  if (!text) return ''
+  return text
+    .split(' ')
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+}
+
 interface Product {
   id: number
   name: string
@@ -298,12 +307,14 @@ export default function CartBottomSheet({ isOpen, onClose, product, mode = 'cart
                 <span className="text-xs text-gray-400 line-through">{formatPrice(displayRegular)}</span>
               )}
             </div>
-            <div className="flex items-center gap-2 mt-2">
-              <span className="inline-flex items-center gap-1 rounded bg-emerald-50 text-emerald-700 px-1.5 py-0.5 text-xs">
+            <div className="mt-2 text-xs text-gray-600">
+              <span className="inline-flex items-center gap-1 rounded bg-emerald-50 text-emerald-700 px-1.5 py-0.5">
                 Freeship
               </span>
               {selectedVariant && (
-                <span className="text-xs text-gray-500">{selectedVariant.value}</span>
+                <span className="block mt-1 font-medium">
+                  {(selectedVariant.label ? `${capitalize(selectedVariant.label)}: ` : '') + capitalize(selectedVariant.value)}
+                </span>
               )}
             </div>
           </div>
@@ -316,30 +327,31 @@ export default function CartBottomSheet({ isOpen, onClose, product, mode = 'cart
             <div className="grid grid-cols-3 gap-2">
               {product.variants.map((variant, index) => {
                 const variantImage = variant.image || product.image
-                const isSelected = selectedVariant && 
-                  (selectedVariant.id === variant.id || 
-                   (selectedVariant.value === variant.value && selectedVariant.label === variant.label))
+                const isSelected =
+                  selectedVariant &&
+                  (selectedVariant.id === variant.id ||
+                    (selectedVariant.value === variant.value && selectedVariant.label === variant.label))
+                const variantPrice = variant.price || product.price
+                const variantRegular = variant.regular || product.regular
+                const variantDiscount = variant.discount || 0
+                const showRegular = variantRegular && variantRegular > variantPrice
+
                 return (
                   <button
                     key={variant.id || index}
                     onClick={() => handleVariantSelect(variant)}
                     className={`relative border-2 rounded-lg overflow-hidden transition-all ${
-                      isSelected
-                        ? 'border-rose-500 shadow-md'
-                        : 'border-gray-200 hover:border-gray-300'
+                      isSelected ? 'border-rose-500 shadow-md' : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
                     <div className="aspect-square bg-gray-50 overflow-hidden">
-                      <img
-                        src={variantImage}
-                        alt={variant.value}
-                        className="object-cover w-full h-full"
-                      />
+                      <img src={variantImage} alt={variant.value} className="object-cover w-full h-full" />
                     </div>
-                    <div className="p-2 text-center">
-                      <span className={`text-xs font-medium ${isSelected ? 'text-rose-600' : 'text-gray-700'}`}>
+                    <div className="p-2 text-center space-y-1">
+                      <span className={`text-xs font-semibold ${isSelected ? 'text-rose-600' : 'text-gray-800'}`}>
                         {variant.value}
                       </span>
+                      
                     </div>
                     {isSelected && (
                       <div className="absolute top-1 right-1 w-4 h-4 bg-rose-500 rounded-full flex items-center justify-center">
@@ -361,6 +373,7 @@ export default function CartBottomSheet({ isOpen, onClose, product, mode = 'cart
               Sản phẩm này không có thuộc tính để chọn
             </div>
           )}
+
         </div>
 
         {/* Quantity */}

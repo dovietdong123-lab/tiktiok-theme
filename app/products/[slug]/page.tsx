@@ -713,7 +713,28 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
 
                     <div className="flex items-center justify-between mt-3 border p-2 rounded">
                       <div className="flex items-center gap-2" id="option-product">
-                        {/* Variants will be rendered here */}
+                        {product.variants && product.variants.length > 0 ? (
+                          <div className="flex gap-2 overflow-x-auto max-w-full">
+                            {product.variants.slice(0, 4).map((variant, idx) => (
+                              <div
+                                key={`${variant.label}-${variant.value}-${idx}`}
+                                className="px-2 py-1 border border-gray-200 rounded-md bg-gray-50 text-xs whitespace-nowrap"
+                              >
+                                <span className="font-semibold text-gray-800">{variant.value}</span>
+                                <span className="ml-1 text-rose-600 font-bold">
+                                  {formatPrice(variant.price || product.price)}
+                                </span>
+                              </div>
+                            ))}
+                            {product.variants.length > 4 && (
+                              <span className="text-[11px] text-gray-500 whitespace-nowrap">
+                                +{product.variants.length - 4} lựa chọn khác
+                              </span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-500">Chọn phiên bản trong giỏ hàng</span>
+                        )}
                       </div>
                     </div>
 

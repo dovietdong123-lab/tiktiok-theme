@@ -28,6 +28,121 @@ type ReviewForm = {
   images: string[]
 }
 
+type AttributeValueForm = {
+  value: string
+  image?: string
+  color?: string
+  size?: string
+  price?: string
+  regular?: string
+  discount?: string
+}
+
+type AttributeForm = {
+  name: string
+  values: AttributeValueForm[]
+}
+
+const toInputString = (value: any) => {
+  if (value === undefined || value === null) return ''
+  return String(value)
+}
+
+const normalizeAttributeValues = (values: any): AttributeValueForm[] => {
+  if (!Array.isArray(values)) return []
+  return values.map((rawValue: any) => {
+    if (typeof rawValue === 'string') {
+      return {
+        value: rawValue,
+        image: '',
+        color: '',
+        size: '',
+        price: '',
+        regular: '',
+        discount: '',
+      }
+    }
+
+    const valueObj = rawValue || {}
+
+    const priceNumber = parseNumberField(valueObj.price)
+    const regularNumber = parseNumberField(valueObj.regular)
+    let discountNumber = parseNumberField(valueObj.discount)
+
+    if (
+      (discountNumber === undefined || !Number.isFinite(discountNumber)) &&
+      priceNumber !== undefined &&
+      regularNumber !== undefined &&
+      regularNumber > 0 &&
+      priceNumber < regularNumber
+    ) {
+      discountNumber = Math.round(((regularNumber - priceNumber) / regularNumber) * 100)
+    }
+
+    return {
+      value: valueObj.value || '',
+      image: valueObj.image || '',
+      color: valueObj.color || '',
+      size: valueObj.size || '',
+      price: priceNumber !== undefined ? toInputString(valueObj.price ?? '') : '',
+      regular: regularNumber !== undefined ? toInputString(valueObj.regular ?? '') : '',
+      discount: discountNumber !== undefined ? toInputString(discountNumber) : '',
+    }
+  })
+}
+
+const normalizeAttributesField = (attributesData: any): AttributeForm[] => {
+  if (!attributesData) return []
+
+  const mapAttributes = (arr: any[]) =>
+    arr.map((attr: any) => ({
+      name: attr?.name || '',
+      values: normalizeAttributeValues(attr?.values || []),
+    }))
+
+  if (Array.isArray(attributesData)) {
+    return mapAttributes(attributesData)
+  }
+
+  if (typeof attributesData === 'string') {
+    try {
+      const parsed = JSON.parse(attributesData)
+      return Array.isArray(parsed) ? mapAttributes(parsed) : []
+    } catch {
+      return []
+    }
+  }
+
+  return []
+}
+
+const parseNumberField = (value: string | number | undefined | null) => {
+  if (value === undefined || value === null) return undefined
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : undefined
+  }
+  const trimmed = value.trim()
+  if (!trimmed) return undefined
+  const num = Number(trimmed)
+  return Number.isFinite(num) ? num : undefined
+}
+
+const computeDiscountFromStrings = (priceStr?: string, regularStr?: string) => {
+  const price = parseNumberField(priceStr ?? '')
+  const regular = parseNumberField(regularStr ?? '')
+  if (
+    price === undefined ||
+    regular === undefined ||
+    !Number.isFinite(price) ||
+    !Number.isFinite(regular) ||
+    regular <= 0 ||
+    price >= regular
+  ) {
+    return ''
+  }
+  return String(Math.round(((regular - price) / regular) * 100))
+}
+
 export default function ProductForm({ onSubmit, initialData, loading: externalLoading = false, productId }: ProductFormProps) {
   const [loading, setLoading] = useState(externalLoading)
   const [fetchingData, setFetchingData] = useState(false)
@@ -57,10 +172,7 @@ const [reviewMediaType, setReviewMediaType] = useState<'avatar' | 'gallery'>('av
     stock: 0,
     featured: false,
     status: 'active',
-    attributes: [] as Array<{
-      name: string
-      values: Array<{ value: string; image?: string; color?: string; size?: string }>
-    }>,
+    attributes: [] as Array<AttributeForm>,
     reviews: [] as Array<{
       id?: number
       user_name: string
@@ -155,41 +267,7 @@ const [reviewMediaType, setReviewMediaType] = useState<'avatar' | 'gallery'>('av
               stock: product.stock || 0,
               featured: product.featured || false,
               status: product.status || 'active',
-              attributes: Array.isArray(product.attributes)
-                ? product.attributes.map((attr: any) => ({
-                    name: attr.name,
-                    values: Array.isArray(attr.values)
-                      ? attr.values.map((v: any) =>
-                          typeof v === 'string'
-                            ? { value: v, image: '', color: '', size: '' }
-                            : {
-                                value: v.value || v,
-                                image: v.image || '',
-                                color: v.color || '',
-                                size: v.size || '',
-                              }
-                        )
-                      : [],
-                  }))
-                : product.attributes
-                ? typeof product.attributes === 'string'
-                  ? JSON.parse(product.attributes).map((attr: any) => ({
-                      name: attr.name,
-                      values: Array.isArray(attr.values)
-                        ? attr.values.map((v: any) =>
-                            typeof v === 'string'
-                              ? { value: v, image: '', color: '', size: '' }
-                              : {
-                                  value: v.value || v,
-                                  image: v.image || '',
-                                  color: v.color || '',
-                                  size: v.size || '',
-                                }
-                          )
-                        : [],
-                    }))
-                  : []
-                : [],
+              attributes: normalizeAttributesField(product.attributes),
               reviews: normalizeReviews(product.reviews),
             })
             console.log('Product loaded:', product.name)
@@ -274,41 +352,7 @@ const [reviewMediaType, setReviewMediaType] = useState<'avatar' | 'gallery'>('av
         stock: initialData.stock || 0,
         featured: initialData.featured || false,
         status: initialData.status || 'active',
-        attributes: Array.isArray(initialData.attributes)
-          ? initialData.attributes.map((attr: any) => ({
-              name: attr.name,
-              values: Array.isArray(attr.values)
-                ? attr.values.map((v: any) =>
-                    typeof v === 'string'
-                      ? { value: v, image: '', color: '', size: '' }
-                      : {
-                          value: v.value || v,
-                          image: v.image || '',
-                          color: v.color || '',
-                          size: v.size || '',
-                        }
-                  )
-                : [],
-            }))
-          : initialData.attributes
-          ? typeof initialData.attributes === 'string'
-            ? JSON.parse(initialData.attributes).map((attr: any) => ({
-                name: attr.name,
-                values: Array.isArray(attr.values)
-                  ? attr.values.map((v: any) =>
-                      typeof v === 'string'
-                        ? { value: v, image: '', color: '', size: '' }
-                        : {
-                            value: v.value || v,
-                            image: v.image || '',
-                            color: v.color || '',
-                            size: v.size || '',
-                          }
-                    )
-                  : [],
-              }))
-            : []
-          : [],
+        attributes: normalizeAttributesField(initialData.attributes),
         reviews: normalizeReviews(initialData.reviews),
       })
     }
@@ -448,6 +492,33 @@ const [reviewMediaType, setReviewMediaType] = useState<'avatar' | 'gallery'>('av
       discount = Math.round(((regularPrice - price) / regularPrice) * 100)
     }
 
+    const normalizedAttributesForSubmit = formData.attributes.map((attr) => ({
+      name: attr.name,
+      values: attr.values.map((value) => {
+        const { price, regular, discount, ...rest } = value
+        const normalizedValue: any = { ...rest }
+        const priceNumber = parseNumberField(price)
+        if (priceNumber !== undefined) normalizedValue.price = priceNumber
+        const regularNumber = parseNumberField(regular)
+        if (regularNumber !== undefined) normalizedValue.regular = regularNumber
+        let discountNumber = parseNumberField(discount)
+
+        if (
+          (discountNumber === undefined || !Number.isFinite(discountNumber)) &&
+          priceNumber !== undefined &&
+          regularNumber !== undefined &&
+          regularNumber > 0 &&
+          priceNumber < regularNumber
+        ) {
+          discountNumber = Math.round(((regularNumber - priceNumber) / regularNumber) * 100)
+        }
+
+        if (discountNumber !== undefined) normalizedValue.discount = discountNumber
+
+        return normalizedValue
+      }),
+    }))
+
     const submitData = {
       ...formData,
       description: formData.description,
@@ -458,7 +529,7 @@ const [reviewMediaType, setReviewMediaType] = useState<'avatar' | 'gallery'>('av
       category_id: formData.category_id ? parseInt(formData.category_id) : null,
       stock: parseInt(String(formData.stock)) || 0,
       gallery: gallery.length > 0 ? JSON.stringify(gallery) : null,
-      attributes: formData.attributes,
+      attributes: normalizedAttributesForSubmit,
       reviews: formData.reviews.map((review) => ({
         id: review.id,
         user_name: review.user_name,
@@ -836,7 +907,10 @@ const [reviewMediaType, setReviewMediaType] = useState<'avatar' | 'gallery'>('av
                             const newAttributes = [...prev.attributes]
                             newAttributes[attrIndex] = {
                               ...newAttributes[attrIndex],
-                              values: [...newAttributes[attrIndex].values, { value, image: '', color: '', size: '' }],
+                              values: [
+                                ...newAttributes[attrIndex].values,
+                                { value, image: '', color: '', size: '', price: '', regular: '', discount: '' },
+                              ],
                             }
                             return { ...prev, attributes: newAttributes }
                           })
@@ -855,7 +929,10 @@ const [reviewMediaType, setReviewMediaType] = useState<'avatar' | 'gallery'>('av
                           const newAttributes = [...prev.attributes]
                           newAttributes[attrIndex] = {
                             ...newAttributes[attrIndex],
-                            values: [...newAttributes[attrIndex].values, { value, image: '' }],
+                            values: [
+                              ...newAttributes[attrIndex].values,
+                              { value, image: '', color: '', size: '', price: '', regular: '', discount: '' },
+                            ],
                           }
                           return { ...prev, attributes: newAttributes }
                         })
@@ -982,6 +1059,61 @@ const [reviewMediaType, setReviewMediaType] = useState<'avatar' | 'gallery'>('av
                                 }}
                                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                               />
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                              <div>
+                                <label className="block text-xs text-gray-500 mb-1">Giá bán (đ)</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  placeholder="VD: 199000"
+                                  value={valueItem.price || ''}
+                                  onChange={(e) => {
+                                    const inputValue = e.target.value
+                                    setFormData((prev) => {
+                                      const newAttributes = [...prev.attributes]
+                                      newAttributes[attrIndex].values[valueIndex].price = inputValue
+                                      const regularValue = newAttributes[attrIndex].values[valueIndex].regular || ''
+                                      const autoDiscount = computeDiscountFromStrings(inputValue, regularValue)
+                                      newAttributes[attrIndex].values[valueIndex].discount = autoDiscount
+                                      return { ...prev, attributes: newAttributes }
+                                    })
+                                  }}
+                                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-500 mb-1">Giá gốc (đ)</label>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  placeholder="VD: 249000"
+                                  value={valueItem.regular || ''}
+                                  onChange={(e) => {
+                                    const inputValue = e.target.value
+                                    setFormData((prev) => {
+                                      const newAttributes = [...prev.attributes]
+                                      newAttributes[attrIndex].values[valueIndex].regular = inputValue
+                                      const priceValue = newAttributes[attrIndex].values[valueIndex].price || ''
+                                      const autoDiscount = computeDiscountFromStrings(priceValue, inputValue)
+                                      newAttributes[attrIndex].values[valueIndex].discount = autoDiscount
+                                      return { ...prev, attributes: newAttributes }
+                                    })
+                                  }}
+                                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs text-gray-500 mb-1">Giảm giá (%)</label>
+                                <input
+                                  type="text"
+                                  placeholder="Tự tính"
+                                  value={valueItem.discount || ''}
+                                  readOnly
+                                  className="w-full border border-gray-200 bg-gray-100 rounded-lg px-3 py-2 text-sm cursor-not-allowed"
+                                />
+                              </div>
                             </div>
                           </div>
 

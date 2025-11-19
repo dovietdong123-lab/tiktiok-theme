@@ -94,16 +94,26 @@ export async function GET(request: Request, { params }: { params: { id: string }
         
         if (Array.isArray(attributes) && attributes.length > 0) {
           // Chuyển đổi attributes thành variants (flat list)
+          const basePrice = Number(product.price) || 0
+          const baseRegular = Number(product.regular) || basePrice
+          const baseDiscount = Number(product.discount) || 0
+
           attributes.forEach((attr: any, attrIndex: number) => {
             if (attr.values && Array.isArray(attr.values)) {
-              attr.values.forEach((valueObj: any, valueIndex: number) => {
+              attr.values.forEach((rawValueObj: any, valueIndex: number) => {
+                const valueObj =
+                  typeof rawValueObj === 'string' ? { value: rawValueObj } : rawValueObj || {}
+                const variantPrice = parseVariantNumber(valueObj.price, basePrice)
+                const variantRegular = parseVariantNumber(valueObj.regular, baseRegular)
+                const variantDiscount = parseVariantNumber(valueObj.discount, baseDiscount)
+
                 variantsFromAttributes.push({
                   id: `attr_${attrIndex}_${valueIndex}`,
                   label: attr.name || '',
                   value: valueObj.value || '',
-                  price: Number(product.price) || 0,
-                  regular: Number(product.regular) || 0,
-                  discount: Number(product.discount) || 0,
+                  price: variantPrice,
+                  regular: variantRegular,
+                  discount: variantDiscount,
                   image: valueObj.image || product.image || null,
                 })
               })
@@ -264,5 +274,11 @@ function parseReviewGallery(gallery: any): string[] {
     }
   }
   return []
+}
+
+const parseVariantNumber = (value: any, fallback: number) => {
+  if (value === undefined || value === null || value === '') return fallback
+  const num = Number(value)
+  return Number.isFinite(num) ? num : fallback
 }
 
