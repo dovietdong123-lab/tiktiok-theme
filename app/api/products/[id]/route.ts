@@ -150,6 +150,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
         rating,
         user_name,
         avatar,
+        gallery,
         created_at
       FROM product_reviews
       WHERE product_id = ? AND status = 'approved'
@@ -165,7 +166,12 @@ export async function GET(request: Request, { params }: { params: { id: string }
       gallery,
       variants: variants,
       recommended: Array.isArray(recommended) ? recommended : [],
-      reviews: Array.isArray(reviews) ? reviews : [],
+      reviews: Array.isArray(reviews)
+        ? reviews.map((review: any) => ({
+            ...review,
+            images: parseReviewGallery(review.gallery),
+          }))
+        : [],
       coupons,
     }
 
@@ -240,5 +246,23 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
       { status: 500 }
     )
   }
+}
+
+function parseReviewGallery(gallery: any): string[] {
+  if (!gallery) return []
+  if (Array.isArray(gallery)) {
+    return gallery.filter((url) => typeof url === 'string' && url.trim() !== '').map((url) => url.trim())
+  }
+  if (typeof gallery === 'string') {
+    try {
+      const parsed = JSON.parse(gallery)
+      if (Array.isArray(parsed)) {
+        return parsed.filter((url: any) => typeof url === 'string' && url.trim() !== '').map((url: string) => url.trim())
+      }
+    } catch {
+      return gallery.trim() ? [gallery.trim()] : []
+    }
+  }
+  return []
 }
 

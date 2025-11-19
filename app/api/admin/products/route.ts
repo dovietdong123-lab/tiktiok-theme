@@ -199,9 +199,10 @@ async function insertReviews(productId: number, reviews: any) {
     const rating = Math.min(5, Math.max(1, Number(review.rating) || 5))
     const status =
       review.status === 'pending' || review.status === 'rejected' ? review.status : 'approved'
+    const galleryJson = normalizeReviewGallery(review.images)
     await query(
-      `INSERT INTO product_reviews (product_id, user_name, avatar, content, rating, status, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, NOW())`,
+      `INSERT INTO product_reviews (product_id, user_name, avatar, content, rating, status, gallery, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, NOW())`,
       [
         productId,
         review.user_name || '',
@@ -209,8 +210,32 @@ async function insertReviews(productId: number, reviews: any) {
         review.content || '',
         rating,
         status,
+        galleryJson,
       ]
     )
   }
+}
+
+function normalizeReviewGallery(images: any): string | null {
+  if (Array.isArray(images)) {
+    const filtered = images
+      .filter((url) => typeof url === 'string' && url.trim() !== '')
+      .map((url) => url.trim())
+    return filtered.length ? JSON.stringify(filtered) : null
+  }
+  if (typeof images === 'string' && images.trim() !== '') {
+    try {
+      const parsed = JSON.parse(images)
+      if (Array.isArray(parsed)) {
+        const filtered = parsed
+          .filter((url: any) => typeof url === 'string' && url.trim() !== '')
+          .map((url: string) => url.trim())
+        return filtered.length ? JSON.stringify(filtered) : null
+      }
+    } catch {
+      return JSON.stringify([images.trim()])
+    }
+  }
+  return null
 }
 

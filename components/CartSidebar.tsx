@@ -250,7 +250,7 @@ export default function CartSidebar() {
                 />
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm leading-tight mb-1">
-                    <span className="bg-black text-white text-xs px-1 py-0.5 rounded">Mall</span>
+                    <span className="bg-black text-white text-xs px-1 py-0.5 rounded mr-1">Mall</span>
                     {item.productName}
                   </p>
                   {item.variant && (

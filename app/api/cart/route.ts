@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import crypto from 'crypto'
 
 interface CartItem {
   productId: number
@@ -17,8 +16,7 @@ interface CartItem {
   attributes?: Record<string, string>
 }
 
-// Store carts in memory (in production, use Redis or database)
-const carts = new Map<string, CartItem[]>()
+const CART_COOKIE = 'cart_data'
 
 // Helper to normalize variant for comparison
 function normalizeVariant(variant?: any): string {
@@ -32,38 +30,40 @@ function normalizeVariant(variant?: any): string {
   return JSON.stringify(sorted)
 }
 
-// Helper to get or create session ID
-function getSessionId(request: NextRequest): string {
-  let sessionId = request.cookies.get('cart_session')?.value
-
-  if (!sessionId) {
-    sessionId = crypto.randomBytes(16).toString('hex')
+function readCart(request: NextRequest): CartItem[] {
+  const raw = request.cookies.get(CART_COOKIE)?.value
+  if (!raw) return []
+  try {
+    const decoded = Buffer.from(raw, 'base64').toString('utf-8')
+    const parsed = JSON.parse(decoded)
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
   }
+}
 
-  return sessionId
+function writeCartCookie(response: NextResponse, cart: CartItem[]) {
+  const encoded = Buffer.from(JSON.stringify(cart)).toString('base64')
+  response.cookies.set(CART_COOKIE, encoded, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 60 * 60 * 24 * 30,
+    path: '/',
+  })
 }
 
 // GET - Lấy giỏ hàng
 export async function GET(request: NextRequest) {
   try {
-    const sessionId = getSessionId(request)
-    const cart = carts.get(sessionId) || []
+    const cart = readCart(request)
 
     const response = NextResponse.json({
       success: true,
       data: cart,
     })
 
-    // Set cookie if not exists
-    if (!request.cookies.get('cart_session')) {
-      response.cookies.set('cart_session', sessionId, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 30, // 30 days
-        path: '/',
-      })
-    }
+    writeCartCookie(response, cart)
 
     return response
   } catch (error: any) {
@@ -81,7 +81,6 @@ export async function GET(request: NextRequest) {
 // POST - Thêm/cập nhật giỏ hàng
 export async function POST(request: NextRequest) {
   try {
-    const sessionId = getSessionId(request)
     const body = await request.json()
     const { items } = body // items: CartItem[]
 
@@ -110,23 +109,12 @@ export async function POST(request: NextRequest) {
         attributes: item.attributes || undefined,
       }))
 
-    carts.set(sessionId, validItems)
-
     const response = NextResponse.json({
       success: true,
       data: validItems,
     })
 
-    // Set cookie if not exists
-    if (!request.cookies.get('cart_session')) {
-      response.cookies.set('cart_session', sessionId, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 30, // 30 days
-        path: '/',
-      })
-    }
+    writeCartCookie(response, validItems)
 
     return response
   } catch (error: any) {
@@ -144,7 +132,6 @@ export async function POST(request: NextRequest) {
 // PUT - Cập nhật số lượng item (dùng productId + variant thay vì index)
 export async function PUT(request: NextRequest) {
   try {
-    const sessionId = getSessionId(request)
     const body = await request.json()
     const { productId, variant, quantity } = body
 
@@ -158,7 +145,7 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    const cart = carts.get(sessionId) || []
+    const cart = readCart(request)
     const variantKey = normalizeVariant(variant)
     
     const itemIndex = cart.findIndex(
@@ -179,22 +166,12 @@ export async function PUT(request: NextRequest) {
 
     const newQuantity = Math.max(1, quantity)
     cart[itemIndex] = { ...cart[itemIndex], quantity: newQuantity }
-    carts.set(sessionId, cart)
-
     const response = NextResponse.json({
       success: true,
       data: cart,
     })
 
-    if (!request.cookies.get('cart_session')) {
-      response.cookies.set('cart_session', sessionId, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 30,
-        path: '/',
-      })
-    }
+    writeCartCookie(response, cart)
 
     return response
   } catch (error: any) {
@@ -212,12 +189,11 @@ export async function PUT(request: NextRequest) {
 // DELETE - Xóa item hoặc xóa toàn bộ giỏ hàng
 export async function DELETE(request: NextRequest) {
   try {
-    const sessionId = getSessionId(request)
     const { searchParams } = new URL(request.url)
     const productId = searchParams.get('productId')
     const variantParam = searchParams.get('variant')
 
-    const cart = carts.get(sessionId) || []
+    const cart = readCart(request)
 
     if (productId) {
       // Xóa item cụ thể bằng productId + variant
@@ -236,32 +212,23 @@ export async function DELETE(request: NextRequest) {
           item.productId === Number(productId) &&
           normalizeVariant(item.variant) === variantKey
       )
-
       if (itemIndex >= 0) {
         cart.splice(itemIndex, 1)
-        carts.set(sessionId, cart)
       }
-    } else {
-      // Xóa toàn bộ giỏ hàng (nếu không có productId)
-      carts.set(sessionId, [])
-    }
-
-    const response = NextResponse.json({
-      success: true,
-      data: carts.get(sessionId) || [],
-    })
-
-    if (!request.cookies.get('cart_session')) {
-      response.cookies.set('cart_session', sessionId, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 30,
-        path: '/',
+      const response = NextResponse.json({
+        success: true,
+        data: cart,
       })
+      writeCartCookie(response, cart)
+      return response
+    } else {
+      const response = NextResponse.json({
+        success: true,
+        data: [],
+      })
+      writeCartCookie(response, [])
+      return response
     }
-
-    return response
   } catch (error: any) {
     console.error('Error deleting cart item:', error)
     return NextResponse.json(

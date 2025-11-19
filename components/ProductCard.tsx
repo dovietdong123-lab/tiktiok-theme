@@ -29,6 +29,22 @@ export default function ProductCard({
   detailed = false,
 }: ProductCardProps) {
   const router = useRouter()
+  const baseUrl = process.env.NEXT_PUBLIC_IMAGE_BASE_URL || ''
+
+  const getImageUrl = (src: string) => {
+    if (!src) return ''
+    if (src.startsWith('http://') || src.startsWith('https://')) {
+      return src
+    }
+
+    if (!baseUrl) {
+      return src
+    }
+
+    const normalizedBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl
+    const normalizedPath = src.startsWith('/') ? src : `/${src}`
+    return `${normalizedBase}${normalizedPath}`
+  }
 
   const handleClick = () => {
     // Navigate to product detail page with route
@@ -46,7 +62,7 @@ export default function ProductCard({
       >
         <div className="relative">
           <img
-            src={product.image}
+            src={getImageUrl(product.image)}
             alt={product.name}
             className="w-full h-48 object-cover"
             loading="lazy"
@@ -97,7 +113,7 @@ export default function ProductCard({
       )}
       <div className="flex-1 flex items-end">
         <img
-          src={product.image}
+          src={getImageUrl(product.image)}
           alt={product.name}
           className={`w-full ${height} object-cover rounded`}
           loading="lazy"

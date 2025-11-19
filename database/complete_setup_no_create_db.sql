@@ -99,6 +99,7 @@ CREATE TABLE IF NOT EXISTS product_reviews (
   content TEXT NOT NULL,
   rating INT DEFAULT 5 CHECK (rating >= 1 AND rating <= 5),
   status ENUM('pending', 'approved', 'rejected') DEFAULT 'pending',
+  gallery TEXT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   INDEX idx_product (product_id),
   INDEX idx_status (status),
@@ -112,6 +113,18 @@ SET @sql = IF(
    AND COLUMN_NAME = 'avatar') = 0,
   'ALTER TABLE product_reviews ADD COLUMN avatar VARCHAR(500) NULL',
   'SELECT "Column avatar already exists" as message'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @sql = IF(
+  (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS 
+   WHERE TABLE_SCHEMA = DATABASE() 
+   AND TABLE_NAME = 'product_reviews' 
+   AND COLUMN_NAME = 'gallery') = 0,
+  'ALTER TABLE product_reviews ADD COLUMN gallery TEXT NULL',
+  'SELECT "Column gallery already exists" as message'
 );
 PREPARE stmt FROM @sql;
 EXECUTE stmt;

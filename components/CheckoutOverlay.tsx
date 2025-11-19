@@ -412,7 +412,7 @@ export default function CheckoutOverlay({ isOpen, onClose, directProduct }: Chec
           <div className="bg-white px-5 py-4 border-b-8 border-gray-100">
             <div className="flex items-center justify-between mb-4">
               <span>
-                <span className="bg-black text-white text-xs px-1 py-0.5 rounded">Mall</span>
+                <span className="bg-black text-white text-xs px-1 py-0.5 rounded mr-1">Mall</span>
                 <span className="text-base font-semibold text-gray-900 shop-name">Đơn hàng của bạn</span>
               </span>
               <button className="text-sm text-gray-500">Thêm ghi chú ›</button>

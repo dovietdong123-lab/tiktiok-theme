@@ -278,7 +278,7 @@ export default function CartBottomSheet({ isOpen, onClose, product, mode = 'cart
               ref={productImageRef}
               src={displayImage} 
               alt={product.name} 
-              className="object-contain w-full h-full" 
+              className="object-cover w-full h-full" 
             />
           </div>
           <div className="flex-1 min-w-0">
@@ -329,11 +329,11 @@ export default function CartBottomSheet({ isOpen, onClose, product, mode = 'cart
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                   >
-                    <div className="aspect-square bg-gray-50 flex items-center justify-center p-2">
+                    <div className="aspect-square bg-gray-50 overflow-hidden">
                       <img
                         src={variantImage}
                         alt={variant.value}
-                        className="object-contain w-full h-full"
+                        className="object-cover w-full h-full"
                       />
                     </div>
                     <div className="p-2 text-center">

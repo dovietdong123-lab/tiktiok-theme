@@ -25,6 +25,7 @@ type ReviewForm = {
   rating: number
   content: string
   status: 'pending' | 'approved' | 'rejected'
+  images: string[]
 }
 
 export default function ProductForm({ onSubmit, initialData, loading: externalLoading = false, productId }: ProductFormProps) {
@@ -33,7 +34,8 @@ export default function ProductForm({ onSubmit, initialData, loading: externalLo
   const [showMediaLibrary, setShowMediaLibrary] = useState(false)
   const [showGalleryLibrary, setShowGalleryLibrary] = useState(false)
   const [showReviewMediaLibrary, setShowReviewMediaLibrary] = useState(false)
-  const [reviewMediaIndex, setReviewMediaIndex] = useState<number | null>(null)
+const [reviewMediaIndex, setReviewMediaIndex] = useState<number | null>(null)
+const [reviewMediaType, setReviewMediaType] = useState<'avatar' | 'gallery'>('avatar')
   const [categories, setCategories] = useState<Array<{ id: number; name: string }>>([])
   const [loadingCategories, setLoadingCategories] = useState(false)
   const [toast, setToast] = useState<{ isOpen: boolean; message: string; type: 'success' | 'error' | 'info' }>({
@@ -66,8 +68,27 @@ export default function ProductForm({ onSubmit, initialData, loading: externalLo
       rating: number
       content: string
       status: 'pending' | 'approved' | 'rejected'
+      images: string[]
     }>,
   })
+
+  const parseReviewImages = (value: any): string[] => {
+    if (!value) return []
+    if (Array.isArray(value)) {
+      return value.filter((url) => typeof url === 'string' && url.trim() !== '').map((url) => url.trim())
+    }
+    if (typeof value === 'string') {
+      try {
+        const parsed = JSON.parse(value)
+        if (Array.isArray(parsed)) {
+          return parsed.filter((url) => typeof url === 'string' && url.trim() !== '').map((url) => url.trim())
+        }
+      } catch {
+        return value.trim() ? [value.trim()] : []
+      }
+    }
+    return []
+  }
 
   const normalizeReviews = (reviews: any): ReviewForm[] => {
     if (!Array.isArray(reviews)) return []
@@ -78,6 +99,7 @@ export default function ProductForm({ onSubmit, initialData, loading: externalLo
       rating: review.rating || 5,
       content: review.content || '',
       status: review.status || 'approved',
+      images: parseReviewImages(review.images || review.gallery),
     }))
   }
 
@@ -333,6 +355,43 @@ export default function ProductForm({ onSubmit, initialData, loading: externalLo
     })
   }
 
+  const addReviewImages = (index: number, urls: string[]) => {
+    if (!Array.isArray(urls) || urls.length === 0) return
+    setFormData((prev) => {
+      const reviews = [...prev.reviews]
+      if (!reviews[index]) return prev
+      const currentImages = Array.isArray(reviews[index].images) ? reviews[index].images : []
+      const merged = [...currentImages]
+      urls.forEach((url) => {
+        if (typeof url === 'string') {
+          const trimmed = url.trim()
+          if (trimmed && !merged.includes(trimmed)) {
+            merged.push(trimmed)
+          }
+        }
+      })
+      reviews[index] = {
+        ...reviews[index],
+        images: merged,
+      }
+      return { ...prev, reviews }
+    })
+  }
+
+  const removeReviewImage = (index: number, imageIndex: number) => {
+    setFormData((prev) => {
+      const reviews = [...prev.reviews]
+      if (!reviews[index]) return prev
+      const images = Array.isArray(reviews[index].images) ? [...reviews[index].images] : []
+      images.splice(imageIndex, 1)
+      reviews[index] = {
+        ...reviews[index],
+        images,
+      }
+      return { ...prev, reviews }
+    })
+  }
+
   const addReview = () => {
     setFormData((prev) => ({
       ...prev,
@@ -344,6 +403,7 @@ export default function ProductForm({ onSubmit, initialData, loading: externalLo
           rating: 5,
           content: '',
           status: 'approved',
+          images: [],
         },
       ],
     }))
@@ -406,6 +466,9 @@ export default function ProductForm({ onSubmit, initialData, loading: externalLo
         rating: review.rating || 5,
         content: review.content,
         status: review.status || 'approved',
+        images: Array.isArray(review.images)
+          ? review.images.filter((url) => typeof url === 'string' && url.trim() !== '').map((url) => url.trim())
+          : [],
       })),
     }
 
@@ -1039,6 +1102,7 @@ export default function ProductForm({ onSubmit, initialData, loading: externalLo
                         className="px-3 py-2 border rounded-lg text-sm text-gray-700 hover:bg-gray-50"
                         onClick={() => {
                           setReviewMediaIndex(index)
+                        setReviewMediaType('avatar')
                           setShowReviewMediaLibrary(true)
                         }}
                       >
@@ -1055,6 +1119,36 @@ export default function ProductForm({ onSubmit, initialData, loading: externalLo
                     onChange={(value) => handleReviewFieldChange(index, 'content', value)}
                   />
                 </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Ảnh đính kèm (Gallery)</label>
+                <div className="flex flex-wrap gap-3">
+                  {Array.isArray(review.images) && review.images.length > 0 && review.images.map((imgUrl, imgIndex) => (
+                    <div key={`${index}-img-${imgIndex}`} className="relative w-20 h-20 rounded-lg overflow-hidden border bg-gray-50">
+                      <img src={imgUrl} alt={`Review image ${imgIndex + 1}`} className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => removeReviewImage(index, imgIndex)}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white w-6 h-6 rounded-full text-xs flex items-center justify-center shadow"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    className="flex items-center justify-center w-20 h-20 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-blue-500 hover:text-blue-600 transition"
+                    onClick={() => {
+                      setReviewMediaIndex(index)
+                      setReviewMediaType('gallery')
+                      setShowReviewMediaLibrary(true)
+                    }}
+                  >
+                    + Thêm ảnh
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-1">Có thể chọn nhiều ảnh cùng lúc.</p>
+              </div>
               </div>
             ))}
           </div>
@@ -1186,12 +1280,24 @@ export default function ProductForm({ onSubmit, initialData, loading: externalLo
       {showReviewMediaLibrary && reviewMediaIndex !== null && (
         <MediaLibrary
           isOpen={showReviewMediaLibrary}
+          multiple={reviewMediaType === 'gallery'}
           onClose={() => {
             setShowReviewMediaLibrary(false)
             setReviewMediaIndex(null)
           }}
           onSelect={(url) => {
-            handleReviewFieldChange(reviewMediaIndex, 'avatar', url)
+            if (reviewMediaType === 'avatar') {
+              handleReviewFieldChange(reviewMediaIndex, 'avatar', url)
+            } else {
+              addReviewImages(reviewMediaIndex, [url])
+            }
+            setShowReviewMediaLibrary(false)
+            setReviewMediaIndex(null)
+          }}
+          onSelectMultiple={(urls) => {
+            if (urls && urls.length > 0) {
+              addReviewImages(reviewMediaIndex, urls)
+            }
             setShowReviewMediaLibrary(false)
             setReviewMediaIndex(null)
           }}

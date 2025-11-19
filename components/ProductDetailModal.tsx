@@ -5,6 +5,43 @@ import { useProductDetail } from '@/hooks/useProductDetail'
 import CartOverlay from '@/components/CartOverlay'
 import CheckoutOverlay from '@/components/CheckoutOverlay'
 
+const imageBaseUrl = process.env.NEXT_PUBLIC_IMAGE_BASE_URL || ''
+
+const resolveMediaUrl = (src: string) => {
+  if (!src) return ''
+  if (/^https?:\/\//i.test(src)) return src
+  if (!imageBaseUrl) return src
+  const normalizedBase = imageBaseUrl.endsWith('/') ? imageBaseUrl.slice(0, -1) : imageBaseUrl
+  const normalizedPath = src.startsWith('/') ? src : `/${src}`
+  return `${normalizedBase}${normalizedPath}`
+}
+
+const formatReviewContent = (content?: string) => {
+  const fallbackText = 'Không có nội dung đánh giá'
+  if (!content) return { text: fallbackText, images: [] as string[] }
+  if (typeof window === 'undefined' || typeof DOMParser === 'undefined') {
+    return { text: content, images: [] as string[] }
+  }
+  try {
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(content, 'text/html')
+    const images: string[] = []
+    doc.querySelectorAll('img').forEach((img) => {
+      const originalSrc = img.getAttribute('src') || ''
+      const resolved = resolveMediaUrl(originalSrc)
+      if (resolved) {
+        images.push(resolved)
+      }
+      img.remove()
+    })
+    const text = doc.body.innerHTML || fallbackText
+    return { text, images }
+  } catch (error) {
+    console.error('Failed to format review content:', error)
+    return { text: content, images: [] }
+  }
+}
+
 interface Product {
   id: number
   name: string
@@ -27,6 +64,8 @@ interface Review {
   user_name?: string
   avatar?: string
   created_at?: string
+  product_name?: string
+  images?: string[]
 }
 
 interface Variant {
@@ -315,8 +354,10 @@ export default function ProductDetailModal() {
 
           {/* Tab Navigation */}
           <div
-            className={`tab-navigation sticky top-0 bg-white z-10 ${
-              tabNavVisible ? 'visible' : ''
+            className={`tab-navigation sticky top-0 bg-white z-10 transition-all duration-300 ease-out transform ${
+              tabNavVisible
+                ? 'translate-y-0 opacity-100'
+                : '-translate-y-full opacity-0 h-0 overflow-hidden pointer-events-none'
             }`}
           >
             <div className="flex items-center justify-between text-sm font-medium border-b bg-white">
@@ -441,7 +482,7 @@ export default function ProductDetailModal() {
                 {/* Product Info */}
                 <div className="w-full max-w-md mx-auto bg-white p-4 rounded shadow">
                   <div>
-                    <span className="bg-black text-white text-xs px-1 py-0.5 rounded">Mall</span>
+                    <span className="bg-black text-white text-xs px-1 py-0.5 rounded mr-1">Mall</span>
                     <span className="text-sm font-medium title">{product.name}</span>
                   </div>
 
@@ -526,82 +567,110 @@ export default function ProductDetailModal() {
 
               {/* Đánh giá Section */}
               <section id="danhgia" className="section">
-                <div className="w-full max-w-md mx-auto bg-white p-4 rounded">
-                  <div className="flex items-center justify-between mb-2">
-                    <h2 className="font-bold tetext-gray-800 text-sm">
-                      Đánh giá của khách hàng
-                    </h2>
-                    <a href="#" className="text-blue-500 text-xs">
-                      Xem thêm &gt;
-                    </a>
+                <div className="space-y-4">
+                  <div className="w-full max-w-md mx-auto bg-white p-4 rounded shadow">
+                    <div className="flex items-center justify-between mb-2">
+                      <h2 className="font-bold text-gray-800 text-sm">
+                        Đánh giá của khách hàng ({product?.reviews?.length || 0})
+                      </h2>
+                      <a href="#" className="text-blue-500 text-xs">Xem thêm &gt;</a>
+                    </div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <span className="text-lg font-semibold text-gray-800">
+                        {(
+                          (product?.reviews?.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) || 0) /
+                          (product?.reviews?.length || 1)
+                        ).toFixed(1)}
+                      </span>
+                      <span className="text-sm text-gray-500">/5</span>
+                      <div className="flex text-yellow-400 text-sm">
+                        {'★'.repeat(Math.round(
+                          (product?.reviews?.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) || 0) /
+                          (product?.reviews?.length || 1)
+                        )) || '★★★★★'}
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      {product?.reviews && product.reviews.length > 0 ? (
+                        product.reviews.map((review: any) => {
+                          const { text, images } = formatReviewContent(review.content)
+                          const galleryImages = Array.isArray(review.images)
+                            ? review.images.filter((url: any) => typeof url === 'string' && url.trim() !== '').map((url: string) => url.trim())
+                            : []
+                          const mergedImages = [...galleryImages]
+                          images.forEach((img) => {
+                            if (img && !mergedImages.includes(img)) {
+                              mergedImages.push(img)
+                            }
+                          })
+                          return (
+                            <div key={review.id} className="border-b pb-4 last:border-b-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <img
+                                  src={review.avatar || 'https://via.placeholder.com/64'}
+                                  alt="avatar"
+                                  className="w-8 h-8 rounded-full object-cover"
+                                />
+                                <span className="text-sm font-semibold text-gray-700 name-review">
+                                  {review.user_name || 'Khách hàng'}
+                                </span>
+                              </div>
+                              <div className="flex text-yellow-400 text-sm">
+                                {'★'.repeat(review.rating || 0)}
+                                {'☆'.repeat(5 - (review.rating || 0))}
+                              </div>
+                              <div className="text-xs text-gray-500 mt-1">
+                                Mặt hàng: {review.product_name || product?.name}
+                              </div>
+                              <p
+                                className="text-sm text-gray-700 mt-2 leading-relaxed review-content"
+                                dangerouslySetInnerHTML={{ __html: text }}
+                              />
+                              {mergedImages.length > 0 && (
+                                <div className="flex gap-2 mt-3 flex-wrap">
+                                  {mergedImages.map((imgSrc, idx) => (
+                                    <img
+                                      key={`${review.id}-modal-img-${idx}`}
+                                      src={imgSrc}
+                                      alt={`${review.product_name || product?.name} review photo`}
+                                      className="w-24 h-24 object-cover rounded"
+                                    />
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })
+                      ) : (
+                        <div className="text-center py-6 text-sm text-gray-500">
+                          Chưa có đánh giá nào cho sản phẩm này
+                        </div>
+                      )}
+                    </div>
                   </div>
 
-                  {product?.reviews && product.reviews.length > 0 ? (
-                    <>
-                      <div className="flex items-center gap-3 mb-3">
-                        <div className="text-center">
-                          <div className="text-2xl font-bold text-gray-800">
-                            {(
-                              product.reviews.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) /
-                              product.reviews.length
-                            ).toFixed(1)}
-                          </div>
-                          <div className="text-xs text-gray-500">/5</div>
-                          <div className="flex text-yellow-400 text-xs mt-1">
-                            {'★'.repeat(
-                              Math.round(
-                                product.reviews.reduce((sum: number, r: any) => sum + (r.rating || 0), 0) /
-                                  product.reviews.length
-                              )
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex-1">
-                          <div className="text-xs text-gray-600">
-                            {product.reviews.length} đánh giá
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="space-y-4">
-                        {product.reviews.map((review: any) => (
-                          <div key={review.id} className="border-b pb-4 last:border-b-0">
-                            <div className="flex items-start justify-between mb-2">
-                              <div className="flex items-center gap-2">
-                                <div className="w-10 h-10 rounded-full bg-gray-100 border flex items-center justify-center overflow-hidden text-xs font-bold text-gray-500">
-                                  {review.avatar ? (
-                                    <img src={review.avatar} alt={review.user_name || 'avatar'} className="w-full h-full object-cover" />
-                                  ) : (
-                                    (review.user_name?.charAt(0).toUpperCase() || 'U')
-                                  )}
-                                </div>
-                                <div>
-                                  <div className="font-medium text-sm text-gray-800">
-                                    {review.user_name || 'Khách hàng'}
-                                  </div>
-                                  <div className="flex items-center gap-1 text-xs text-gray-500">
-                                    <div className="flex text-yellow-400">
-                                      {'★'.repeat(review.rating || 0)}
-                                      {'☆'.repeat(5 - (review.rating || 0))}
-                                    </div>
-                                    <span className="ml-1">{review.rating}/5</span>
-                                  </div>
-                                </div>
-                              </div>
-                            </div>
-                            <div
-                              className="text-sm text-gray-700 mt-2 prose prose-sm max-w-none"
-                              dangerouslySetInnerHTML={{ __html: review.content || 'Không có nội dung đánh giá' }}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    </>
-                  ) : (
-                    <div className="text-center py-6 text-gray-500 text-sm">
-                      Chưa có đánh giá nào
+                  <div className="w-full max-w-md mx-auto bg-white p-4 rounded shadow">
+                    <div className="flex items-center justify-between mb-3">
+                      <h2 className="font-semibold text-gray-800 text-sm">
+                        Đánh giá của khách hàng dành cho cửa hàng (698)
+                      </h2>
+                      <a href="#" className="text-gray-500 text-sm">&gt;</a>
                     </div>
-                  )}
+                    <div className="flex flex-wrap gap-2 text-xs">
+                      <button className="flex items-center gap-1 px-3 py-1 border rounded bg-gray-100 text-gray-700">
+                        <span className="bg-black text-white text-xs p-1 rounded">📷</span>
+                        Có ảnh hoặc video (563)
+                      </button>
+                      <button className="flex items-center gap-1 px-3 py-1 border rounded bg-gray-100 text-gray-700">
+                        <span className="text-yellow-400 text-xs">★</span>
+                        5 <span className="text-gray-500 text-xs">(1,5K)</span>
+                      </button>
+                      <button className="flex items-center gap-1 px-3 py-1 border rounded bg-gray-100 text-gray-700">
+                        <span className="text-yellow-400 text-xs">★</span>
+                        4 <span className="text-gray-500 text-xs">(96)</span>
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </section>
 
