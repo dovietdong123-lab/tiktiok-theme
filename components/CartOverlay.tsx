@@ -204,10 +204,12 @@ export default function CartOverlay({ isOpen, onClose, onCheckout }: CartOverlay
       // Xóa tất cả nếu không chọn gì
       await saveCart([])
       setSelectedItems(new Set())
+      setIsEditMode(false)
     } else {
       const newCart = cart.filter((_, i) => !selectedItems.has(i))
       await saveCart(newCart)
       setSelectedItems(new Set())
+      setIsEditMode(false)
     }
   }
 
