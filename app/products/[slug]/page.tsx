@@ -7,6 +7,7 @@ import CartBottomSheet from '@/components/CartBottomSheet'
 import CartOverlay from '@/components/CartOverlay'
 import CheckoutOverlay from '@/components/CheckoutOverlay'
 import { useRandomizedCount, formatCountAsK } from '@/hooks/useRandomizedCount'
+import { generateProductStats } from '@/utils/productStats'
 
 interface Product {
   id: number
@@ -691,15 +692,31 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
                     className="w-full bg-gradient-to-r from-pink-600 to-orange-500 text-white px-4 py-2 flex items-center justify-between"
                   >
                     <div>
-                      <div className="text-sm">
-                        Từ <span className="text-2xl font-bold text-white">{formatPrice(product.price)}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-xs">
-                        <span className="line-through opacity-80">{formatPrice(product.regular)}</span>
-                        <span className="bg-white text-pink-600 font-bold px-1 rounded">
-                          -{product.discount}%
-                        </span>
-                      </div>
+                      {(() => {
+                        // Nếu có variant, lấy giá từ variant đầu tiên, nếu không thì lấy từ product
+                        const displayPrice = product.variants && product.variants.length > 0 
+                          ? (product.variants[0].price || product.price)
+                          : product.price
+                        const displayRegular = product.variants && product.variants.length > 0
+                          ? (product.variants[0].regular || product.regular)
+                          : product.regular
+                        const displayDiscount = product.variants && product.variants.length > 0
+                          ? (product.variants[0].discount || product.discount)
+                          : product.discount
+                        return (
+                          <>
+                            <div className="text-sm">
+                              Từ <span className="text-2xl font-bold text-white">{formatPrice(displayPrice)}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs">
+                              <span className="line-through opacity-80">{formatPrice(displayRegular)}</span>
+                              <span className="bg-white text-pink-600 font-bold px-1 rounded">
+                                -{displayDiscount}%
+                              </span>
+                            </div>
+                          </>
+                        )
+                      })()}
                     </div>
                     <div className="text-right">
                       <div className="font-bold">Flash Sale của shop</div>
@@ -979,38 +996,41 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
                   </div>
                   {product.recommended && product.recommended.length > 0 ? (
                     <div id="product-list-recommended" className="grid grid-cols-2 gap-4">
-                      {product.recommended.map((p) => (
-                        <Link
-                          key={p.id}
-                          href={`/products/${encodeURIComponent(p.slug || String(p.id))}`}
-                          className="border rounded-md overflow-hidden shadow-sm product-card cursor-pointer hover:shadow-md transition-shadow bg-white"
-                        >
-                          <div className="relative">
-                            <img src={p.image} alt={p.name} className="w-full h-48 object-cover" loading="lazy" />
-                            {p.discount && p.discount > 0 && (
-                              <span className="absolute top-2 right-2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded font-bold">
-                                -{p.discount}%
-                              </span>
-                            )}
-                          </div>
-                          <div className="p-2">
-                            <h3 className="text-xs font-medium line-clamp-2 min-h-[2.5rem]">{p.name}</h3>
-                            <div className="flex items-center space-x-2 mt-2">
-                              <span className="text-red-600 font-bold text-sm">{formatPrice(p.price)}</span>
-                              {p.regular && p.discount && p.discount > 0 && (
-                                <span className="line-through text-gray-400 text-xs">
-                                  {formatPrice(p.regular)}
+                      {product.recommended.map((p) => {
+                        const stats = generateProductStats(p.id ?? p.slug ?? p.name)
+                        return (
+                          <Link
+                            key={p.id}
+                            href={`/products/${encodeURIComponent(p.slug || String(p.id))}`}
+                            className="border rounded-md overflow-hidden shadow-sm product-card cursor-pointer hover:shadow-md transition-shadow bg-white"
+                          >
+                            <div className="relative">
+                              <img src={p.image} alt={p.name} className="w-full h-48 object-cover" loading="lazy" />
+                              {p.discount && p.discount > 0 && (
+                                <span className="absolute top-2 right-2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded font-bold">
+                                  -{p.discount}%
                                 </span>
                               )}
                             </div>
-                            <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
-                              <span className="text-yellow-500">★</span>
-                              <span>4.7</span>
-                              <span className="ml-2">Đã bán 500+</span>
+                            <div className="p-2">
+                              <h3 className="text-xs font-medium line-clamp-2 min-h-[2.5rem]">{p.name}</h3>
+                              <div className="flex items-center space-x-2 mt-2">
+                                <span className="text-red-600 font-bold text-sm">{formatPrice(p.price)}</span>
+                                {p.regular && p.discount && p.discount > 0 && (
+                                  <span className="line-through text-gray-400 text-xs">
+                                    {formatPrice(p.regular)}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-1 mt-1 text-xs text-gray-500">
+                                <span className="text-yellow-500">★</span>
+                                <span>{stats.rating}</span>
+                                <span className="ml-2">Đã bán {stats.soldLabel}</span>
+                              </div>
                             </div>
-                          </div>
-                        </Link>
-                      ))}
+                          </Link>
+                        )
+                      })}
                     </div>
                   ) : (
                     <div className="text-center py-8 text-gray-500">

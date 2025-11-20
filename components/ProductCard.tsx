@@ -1,6 +1,8 @@
 'use client'
 
+import { useMemo } from 'react'
 import { useRouter } from 'next/navigation'
+import { generateProductStats } from '@/utils/productStats'
 
 interface Product {
   id: number
@@ -30,6 +32,8 @@ export default function ProductCard({
 }: ProductCardProps) {
   const router = useRouter()
   const baseUrl = process.env.NEXT_PUBLIC_IMAGE_BASE_URL || ''
+  const statsSeed = product.id ?? product.slug ?? product.name
+  const listStats = useMemo(() => generateProductStats(statsSeed), [statsSeed])
 
   const getImageUrl = (src: string) => {
     if (!src) return ''
@@ -90,8 +94,8 @@ export default function ProductCard({
             <span className="bg-gray-100 text-gray-600 px-1 rounded">COD</span>
           </div>
           <div className="flex items-center text-xs text-gray-500 mt-1">
-            <span className="text-yellow-500 mr-1">★</span> 4.7
-            <span className="ml-2">Đã bán {product.sold || 500}</span>
+            <span className="text-yellow-500 mr-1">★</span> {listStats.rating}
+            <span className="ml-2">Đã bán {listStats.soldLabel}</span>
           </div>
         </div>
       </div>
@@ -111,27 +115,34 @@ export default function ProductCard({
           {rank}
         </span>
       )}
-      <div className="flex-1 flex items-end">
+      <div className="flex-1 flex items-end relative">
         <img
           src={getImageUrl(product.image)}
           alt={product.name}
           className={`w-full ${height} object-cover rounded`}
           loading="lazy"
         />
+        {product.discount && product.discount > 0 && (
+          <span className="absolute top-2 right-2 bg-red-600 text-white text-xs font-semibold px-1.5 py-0.5 rounded">
+            -{product.discount}%
+          </span>
+        )}
       </div>
       <div className="mt-2 space-y-1">
-        <h3 className="text-sm font-medium line-clamp-2">{product.name}</h3>
-        <div className="text-red-500 font-bold">
+        <h3 className="text-xs font-medium line-clamp-2 leading-snug">{product.name}</h3>
+        <div className="text-red-500 font-semibold text-sm">
           {Number(product.price).toLocaleString('vi-VN')}đ
         </div>
         {product.regular && (
-          <div className="text-gray-500 line-through text-xs">
+          <div className="text-gray-500 line-through text-[11px]">
             {Number(product.regular).toLocaleString('vi-VN')}đ
           </div>
         )}
-        {product.discount && product.discount > 0 && (
-          <div className="text-green-600 text-xs font-semibold">-{product.discount}%</div>
-        )}
+        <div className="flex items-center text-xs text-gray-500">
+          <span className="text-yellow-500 mr-1">★</span>
+          {listStats.rating}
+          <span className="ml-2">Đã bán {listStats.soldLabel}</span>
+        </div>
       </div>
     </div>
   )

@@ -479,15 +479,31 @@ export default function ProductDetailModal() {
                   className="w-full bg-gradient-to-r from-pink-600 to-orange-500 text-white px-4 py-2 flex items-center justify-between"
                 >
                   <div>
-                    <div className="text-sm">
-                      Từ <span className="text-2xl font-bold text-white">{formatPrice(product.price)}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs">
-                      <span className="line-through opacity-80">{formatPrice(product.regular)}</span>
-                      <span className="bg-white text-pink-600 font-bold px-1 rounded">
-                        -{product.discount}%
-                      </span>
-                    </div>
+                    {(() => {
+                      // Nếu có variant, lấy giá từ variant đầu tiên, nếu không thì lấy từ product
+                      const displayPrice = product.variants && product.variants.length > 0 
+                        ? (product.variants[0].price || product.price)
+                        : product.price
+                      const displayRegular = product.variants && product.variants.length > 0
+                        ? (product.variants[0].regular || product.regular)
+                        : product.regular
+                      const displayDiscount = product.variants && product.variants.length > 0
+                        ? (product.variants[0].discount || product.discount)
+                        : product.discount
+                      return (
+                        <>
+                          <div className="text-sm">
+                            Từ <span className="text-2xl font-bold text-white">{formatPrice(displayPrice)}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-xs">
+                            <span className="line-through opacity-80">{formatPrice(displayRegular)}</span>
+                            <span className="bg-white text-pink-600 font-bold px-1 rounded">
+                              -{displayDiscount}%
+                            </span>
+                          </div>
+                        </>
+                      )
+                    })()}
                   </div>
                   <div className="text-right">
                     <div className="font-bold">Flash Sale của shop</div>
