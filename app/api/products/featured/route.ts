@@ -13,7 +13,8 @@ export async function GET() {
         regular_price as regular,
         discount,
         image,
-        created_at
+        created_at,
+        attributes
       FROM products
       WHERE featured = TRUE AND status = 'active'
       ORDER BY created_at DESC

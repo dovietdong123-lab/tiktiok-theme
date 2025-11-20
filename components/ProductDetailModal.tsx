@@ -5,6 +5,7 @@ import { useProductDetail } from '@/hooks/useProductDetail'
 import CartOverlay from '@/components/CartOverlay'
 import CheckoutOverlay from '@/components/CheckoutOverlay'
 import { useRandomizedCount, formatCountAsK } from '@/hooks/useRandomizedCount'
+import { getDisplayPricing } from '@/utils/productPricing'
 
 const imageBaseUrl = process.env.NEXT_PUBLIC_IMAGE_BASE_URL || ''
 
@@ -56,6 +57,7 @@ interface Product {
   reviews?: Review[]
   variants?: Variant[]
   coupons?: Coupon[]
+  attributes?: any
 }
 
 interface Review {
@@ -480,26 +482,22 @@ export default function ProductDetailModal() {
                 >
                   <div>
                     {(() => {
-                      // Nếu có variant, lấy giá từ variant đầu tiên, nếu không thì lấy từ product
-                      const displayPrice = product.variants && product.variants.length > 0 
-                        ? (product.variants[0].price || product.price)
-                        : product.price
-                      const displayRegular = product.variants && product.variants.length > 0
-                        ? (product.variants[0].regular || product.regular)
-                        : product.regular
-                      const displayDiscount = product.variants && product.variants.length > 0
-                        ? (product.variants[0].discount || product.discount)
-                        : product.discount
+                      const heroPricing = getDisplayPricing(product)
                       return (
                         <>
-                          <div className="text-sm">
-                            Từ <span className="text-2xl font-bold text-white">{formatPrice(displayPrice)}</span>
+                          <div className="text-sm flex items-baseline gap-1 flex-wrap">
+                            <span className="text-white/90">Giá:</span>
+                            <span className="text-2xl font-bold text-white">{formatPrice(heroPricing.price)}</span>
                           </div>
-                          <div className="flex items-center gap-2 text-xs">
-                            <span className="line-through opacity-80">{formatPrice(displayRegular)}</span>
-                            <span className="bg-white text-pink-600 font-bold px-1 rounded">
-                              -{displayDiscount}%
-                            </span>
+                          <div className="flex items-center gap-2 text-xs mt-1">
+                            {heroPricing.regular > heroPricing.price && (
+                              <span className="line-through opacity-80">{formatPrice(heroPricing.regular)}</span>
+                            )}
+                            {heroPricing.discount > 0 && (
+                              <span className="bg-white text-pink-600 font-bold px-1 rounded">
+                                -{heroPricing.discount}%
+                              </span>
+                            )}
                           </div>
                         </>
                       )
@@ -771,32 +769,35 @@ export default function ProductDetailModal() {
               {/* Đề xuất Section */}
               <section id="dexuat" className="section">
                 <div id="product-list-recommended" className="grid grid-cols-2 gap-4 p-4">
-                  {product.recommended?.map((p) => (
-                    <div
-                      key={p.id}
-                      className="border rounded-md overflow-hidden shadow-sm view-detail-btn product-card cursor-pointer hover:shadow-md transition-shadow"
-                    >
-                      <div className="relative">
-                        <img src={p.image} alt={p.name} className="w-full h-48 object-cover" loading="lazy" />
-                        {p.discount > 0 && (
-                          <span className="absolute top-2 right-2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded">
-                            -{p.discount}%
-                          </span>
-                        )}
-                      </div>
-                      <div className="p-2">
-                        <h3 className="text-xs font-medium line-clamp-2">{p.name}</h3>
-                        <div className="flex items-center space-x-2 mt-1">
-                          <span className="text-red-600 font-bold text-sm">{formatPrice(p.price)}</span>
-                          {p.discount > 0 && (
-                            <span className="line-through text-gray-400 text-xs">
-                              {formatPrice(p.regular)}
+                  {product.recommended?.map((p) => {
+                    const pricing = getDisplayPricing(p)
+                    return (
+                      <div
+                        key={p.id}
+                        className="border rounded-md overflow-hidden shadow-sm view-detail-btn product-card cursor-pointer hover:shadow-md transition-shadow"
+                      >
+                        <div className="relative">
+                          <img src={p.image} alt={p.name} className="w-full h-48 object-cover" loading="lazy" />
+                          {pricing.discount > 0 && (
+                            <span className="absolute top-2 right-2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded">
+                              -{pricing.discount}%
                             </span>
                           )}
                         </div>
+                        <div className="p-2">
+                          <h3 className="text-xs font-medium line-clamp-2">{p.name}</h3>
+                          <div className="flex flex-col mt-1 space-y-0.5">
+                            <span className="text-red-600 font-bold text-sm">{formatPrice(pricing.price)}</span>
+                            {pricing.regular > pricing.price && (
+                              <span className="line-through text-gray-400 text-xs">
+                                {formatPrice(pricing.regular)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               </section>
             </>

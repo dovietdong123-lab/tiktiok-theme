@@ -144,7 +144,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
         price,
         regular_price as regular,
         discount,
-        image
+        image,
+        attributes
       FROM products
       WHERE id != ? AND status = 'active'
       ORDER BY RAND()

@@ -3,16 +3,24 @@
 import { useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { generateProductStats } from '@/utils/productStats'
+import { getDisplayPricing } from '@/utils/productPricing'
 
 interface Product {
   id: number
   slug?: string
   name: string
-  price: number
+  price?: number
   regular?: number
+  regular_price?: number
   discount?: number
   image: string
   sold?: number
+  variants?: Array<{
+    price?: number
+    regular?: number
+    discount?: number
+  }>
+  attributes?: any
 }
 
 interface ProductCardProps {
@@ -34,21 +42,24 @@ export default function ProductCard({
   const baseUrl = process.env.NEXT_PUBLIC_IMAGE_BASE_URL || ''
   const statsSeed = product.id ?? product.slug ?? product.name
   const listStats = useMemo(() => generateProductStats(statsSeed), [statsSeed])
+  const pricing = useMemo(() => getDisplayPricing(product), [product])
 
-  const getImageUrl = (src: string) => {
-    if (!src) return ''
-    if (src.startsWith('http://') || src.startsWith('https://')) {
-      return src
-    }
-
-    if (!baseUrl) {
-      return src
-    }
-
-    const normalizedBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl
-    const normalizedPath = src.startsWith('/') ? src : `/${src}`
-    return `${normalizedBase}${normalizedPath}`
+const getImageUrl = (src: string) => {
+  if (!src) return ''
+  if (src.startsWith('http://') || src.startsWith('https://')) {
+    return src
   }
+
+  if (!baseUrl) {
+    return src
+  }
+
+  const normalizedBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl
+  const normalizedPath = src.startsWith('/') ? src : `/${src}`
+  return `${normalizedBase}${normalizedPath}`
+}
+
+const formatCurrency = (value: number) => `${Number(value || 0).toLocaleString('vi-VN')}đ`
 
   const handleClick = () => {
     // Navigate to product detail page with route
@@ -71,22 +82,18 @@ export default function ProductCard({
             className="w-full h-48 object-cover"
             loading="lazy"
           />
-          {product.discount && product.discount > 0 && (
+          {pricing.discount > 0 && (
             <span className="absolute top-2 right-2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded">
-              -{product.discount}%
+              -{pricing.discount}%
             </span>
           )}
         </div>
         <div className="p-2">
           <h3 className="text-xs font-medium line-clamp-2">{product.name}</h3>
-          <div className="flex items-center space-x-2 mt-1">
-            <span className="text-red-600 font-bold text-sm">
-              {Number(product.price).toLocaleString('vi-VN')}đ
-            </span>
-            {product.regular && product.discount && product.discount > 0 && (
-              <span className="line-through text-gray-400 text-xs">
-                {Number(product.regular).toLocaleString('vi-VN')}đ
-              </span>
+          <div className="space-y-1 mt-1">
+            <span className="text-red-600 font-bold text-sm">{formatCurrency(pricing.price)}</span>
+            {pricing.regular > pricing.price && (
+              <div className="text-gray-400 line-through text-xs">{formatCurrency(pricing.regular)}</div>
             )}
           </div>
           <div className="flex items-center space-x-2 mt-1 text-xs">
@@ -122,21 +129,17 @@ export default function ProductCard({
           className={`w-full ${height} object-cover rounded`}
           loading="lazy"
         />
-        {product.discount && product.discount > 0 && (
+        {pricing.discount > 0 && (
           <span className="absolute top-2 right-2 bg-red-600 text-white text-xs font-semibold px-1.5 py-0.5 rounded">
-            -{product.discount}%
+            -{pricing.discount}%
           </span>
         )}
       </div>
       <div className="mt-2 space-y-1">
         <h3 className="text-xs font-medium line-clamp-2 leading-snug">{product.name}</h3>
-        <div className="text-red-500 font-semibold text-sm">
-          {Number(product.price).toLocaleString('vi-VN')}đ
-        </div>
-        {product.regular && (
-          <div className="text-gray-500 line-through text-[11px]">
-            {Number(product.regular).toLocaleString('vi-VN')}đ
-          </div>
+        <div className="text-red-600 font-semibold text-sm">{formatCurrency(pricing.price)}</div>
+        {pricing.regular > pricing.price && (
+          <div className="text-gray-500 line-through text-[11px]">{formatCurrency(pricing.regular)}</div>
         )}
         <div className="flex items-center text-xs text-gray-500">
           <span className="text-yellow-500 mr-1">★</span>

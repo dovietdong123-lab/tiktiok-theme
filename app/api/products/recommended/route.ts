@@ -12,7 +12,8 @@ export async function GET() {
         price,
         regular_price as regular,
         discount,
-        image
+        image,
+        attributes
       FROM products
       WHERE status = 'active'
       ORDER BY RAND(), sold DESC

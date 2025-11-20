@@ -19,6 +19,7 @@ interface Product {
   discount?: number
   image: string
   sold?: number
+  attributes?: any
 }
 
 export default function ProductsTab({
@@ -121,6 +122,7 @@ export default function ProductsTab({
                   discount: product.discount,
                   image: product.image,
                   sold: product.sold,
+                  attributes: product.attributes,
                 }}
                 detailed={true}
               />

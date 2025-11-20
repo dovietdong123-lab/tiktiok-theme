@@ -7,6 +7,7 @@ import CartBottomSheet from '@/components/CartBottomSheet'
 import CartOverlay from '@/components/CartOverlay'
 import CheckoutOverlay from '@/components/CheckoutOverlay'
 import { useRandomizedCount, formatCountAsK } from '@/hooks/useRandomizedCount'
+import { getDisplayPricing } from '@/utils/productPricing'
 import { generateProductStats } from '@/utils/productStats'
 
 interface Product {
@@ -23,6 +24,7 @@ interface Product {
   reviews?: Review[]
   variants?: Variant[]
   coupons?: Coupon[]
+  attributes?: any
 }
 
 interface Review {
@@ -525,26 +527,27 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
                   {isSearching ? (
                     <li className="p-4 text-center text-gray-400 italic">Đang tìm kiếm...</li>
                   ) : searchResults.length > 0 ? (
-                    searchResults.map((item) => (
-                      <li
-                        key={item.id}
-                        onClick={() => handleProductClick(item.id, item.slug)}
-                        className="flex items-center gap-3 p-4 border-b hover:bg-gray-100 cursor-pointer transition"
-                        data-id={item.id}
-                      >
-                        <img
-                          src={item.image || 'https://via.placeholder.com/64'}
-                          alt={item.name}
-                          className="w-16 h-16 rounded object-cover flex-shrink-0"
-                        />
-                        <span className="flex-1 min-w-0">
-                          <span className="font-medium text-gray-800 block truncate">{item.name}</span>
-                          <span className="text-sm text-gray-500">
-                            {formatPrice(item.price || item.regular_price || 0)}
+                    searchResults.map((item) => {
+                      const pricing = getDisplayPricing(item)
+                      return (
+                        <li
+                          key={item.id}
+                          onClick={() => handleProductClick(item.id, item.slug)}
+                          className="flex items-center gap-3 p-4 border-b hover:bg-gray-100 cursor-pointer transition"
+                          data-id={item.id}
+                        >
+                          <img
+                            src={item.image || 'https://via.placeholder.com/64'}
+                            alt={item.name}
+                            className="w-16 h-16 rounded object-cover flex-shrink-0"
+                          />
+                          <span className="flex-1 min-w-0">
+                            <span className="font-medium text-gray-800 block truncate">{item.name}</span>
+                            <span className="text-sm text-gray-500">{formatPrice(pricing.price)}</span>
                           </span>
-                        </span>
-                      </li>
-                    ))
+                        </li>
+                      )
+                    })
                   ) : searchQuery.trim().length >= 2 ? (
                     <li className="p-4 text-gray-400 italic">Không tìm thấy sản phẩm</li>
                   ) : null}
@@ -693,26 +696,22 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
                   >
                     <div>
                       {(() => {
-                        // Nếu có variant, lấy giá từ variant đầu tiên, nếu không thì lấy từ product
-                        const displayPrice = product.variants && product.variants.length > 0 
-                          ? (product.variants[0].price || product.price)
-                          : product.price
-                        const displayRegular = product.variants && product.variants.length > 0
-                          ? (product.variants[0].regular || product.regular)
-                          : product.regular
-                        const displayDiscount = product.variants && product.variants.length > 0
-                          ? (product.variants[0].discount || product.discount)
-                          : product.discount
+                        const heroPricing = getDisplayPricing(product)
                         return (
                           <>
-                            <div className="text-sm">
-                              Từ <span className="text-2xl font-bold text-white">{formatPrice(displayPrice)}</span>
+                            <div className="text-sm flex items-baseline gap-1 flex-wrap">
+                              <span className="text-white/90">Giá:</span>
+                              <span className="text-2xl font-bold text-white">{formatPrice(heroPricing.price)}</span>
                             </div>
-                            <div className="flex items-center gap-2 text-xs">
-                              <span className="line-through opacity-80">{formatPrice(displayRegular)}</span>
-                              <span className="bg-white text-pink-600 font-bold px-1 rounded">
-                                -{displayDiscount}%
-                              </span>
+                            <div className="flex items-center gap-2 text-xs mt-1">
+                              {heroPricing.regular > heroPricing.price && (
+                                <span className="line-through opacity-80">{formatPrice(heroPricing.regular)}</span>
+                              )}
+                              {heroPricing.discount > 0 && (
+                                <span className="bg-white text-pink-600 font-bold px-1 rounded">
+                                  -{heroPricing.discount}%
+                                </span>
+                              )}
                             </div>
                           </>
                         )
@@ -998,6 +997,7 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
                     <div id="product-list-recommended" className="grid grid-cols-2 gap-4">
                       {product.recommended.map((p) => {
                         const stats = generateProductStats(p.id ?? p.slug ?? p.name)
+                        const pricing = getDisplayPricing(p)
                         return (
                           <Link
                             key={p.id}
@@ -1006,19 +1006,19 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
                           >
                             <div className="relative">
                               <img src={p.image} alt={p.name} className="w-full h-48 object-cover" loading="lazy" />
-                              {p.discount && p.discount > 0 && (
+                              {pricing.discount > 0 && (
                                 <span className="absolute top-2 right-2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded font-bold">
-                                  -{p.discount}%
+                                  -{pricing.discount}%
                                 </span>
                               )}
                             </div>
                             <div className="p-2">
                               <h3 className="text-xs font-medium line-clamp-2 min-h-[2.5rem]">{p.name}</h3>
-                              <div className="flex items-center space-x-2 mt-2">
-                                <span className="text-red-600 font-bold text-sm">{formatPrice(p.price)}</span>
-                                {p.regular && p.discount && p.discount > 0 && (
+                              <div className="flex flex-col mt-2 space-y-0.5">
+                                <span className="text-red-600 font-bold text-sm">{formatPrice(pricing.price)}</span>
+                                {pricing.regular > pricing.price && (
                                   <span className="line-through text-gray-400 text-xs">
-                                    {formatPrice(p.regular)}
+                                    {formatPrice(pricing.regular)}
                                   </span>
                                 )}
                               </div>

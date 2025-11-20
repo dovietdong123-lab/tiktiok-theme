@@ -17,6 +17,12 @@ interface Product {
   image: string
   sold?: number
   created_at?: string
+  attributes?: any
+  variants?: Array<{
+    price?: number
+    regular?: number
+    discount?: number
+  }>
 }
 
 export default function HomeTab({ isActive }: HomeTabProps) {

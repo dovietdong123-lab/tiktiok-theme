@@ -41,7 +41,8 @@ export async function GET(request: Request) {
         discount,
         image,
         sold,
-        created_at
+        created_at,
+        attributes
       FROM products
       ${whereSql}
       ORDER BY created_at DESC
@@ -67,6 +68,7 @@ export async function GET(request: Request) {
         discount: 34,
         image: 'https://via.placeholder.com/300',
         sold: 500,
+        attributes: null,
       },
     ]
 
