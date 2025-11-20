@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, type TouchEvent } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import CartBottomSheet from '@/components/CartBottomSheet'
@@ -111,6 +111,7 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
   const [currentImageIndex, setCurrentImageIndex] = useState(0)
   const [activeTab, setActiveTab] = useState('tongquan')
   const [isDescExpanded, setIsDescExpanded] = useState(false)
+  const [isDescOverflow, setIsDescOverflow] = useState(false)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [tabNavVisible, setTabNavVisible] = useState(false)
   const [isAnimating, setIsAnimating] = useState(true)
@@ -133,6 +134,7 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const searchResultsRef = useRef<HTMLUListElement>(null)
+  const descContentRef = useRef<HTMLDivElement>(null)
   const [availableCoupons, setAvailableCoupons] = useState<Coupon[]>([])
   const [copyToast, setCopyToast] = useState<{ visible: boolean; message: string }>({
     visible: false,
@@ -140,6 +142,11 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
   })
   const customerReviewCount = useRandomizedCount('review')
   const soldCount = useRandomizedCount('sold')
+  const touchStartXRef = useRef<number | null>(null)
+  const touchStartYRef = useRef<number | null>(null)
+  const touchDeltaXRef = useRef<number>(0)
+  const isHorizontalSwipeRef = useRef(false)
+  const DESCRIPTION_COLLAPSED_HEIGHT = 500
 
   const renderLoadingSkeleton = () => (
     <div className="p-4 space-y-6">
@@ -271,6 +278,23 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
       setCopyToast({ visible: true, message: `Đã sao chép mã ${code}` })
     })
   }
+
+useEffect(() => {
+  if (!product?.description) {
+    setIsDescOverflow(false)
+    return
+  }
+  const el = descContentRef.current
+  if (!el) return
+  const measure = () => {
+    const overflow = el.scrollHeight - 2 > DESCRIPTION_COLLAPSED_HEIGHT
+    setIsDescOverflow(overflow)
+  }
+  measure()
+  const resizeObserver = new ResizeObserver(measure)
+  resizeObserver.observe(el)
+  return () => resizeObserver.disconnect()
+}, [product?.description])
 
   const formatCountdown = (seconds: number) => {
     const hrs = Math.floor(seconds / 3600)
@@ -434,13 +458,65 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
 
   const nextImage = () => {
     if (product && currentImageIndex < product.gallery.length - 1) {
-      setCurrentImageIndex(currentImageIndex + 1)
+      setCurrentImageIndex((prev) => prev + 1)
     }
   }
 
   const prevImage = () => {
     if (currentImageIndex > 0) {
-      setCurrentImageIndex(currentImageIndex - 1)
+      setCurrentImageIndex((prev) => prev - 1)
+    }
+  }
+
+  const resetTouch = () => {
+    touchStartXRef.current = null
+    touchStartYRef.current = null
+    touchDeltaXRef.current = 0
+    isHorizontalSwipeRef.current = false
+  }
+
+  const handleTouchStart = (e: TouchEvent<HTMLDivElement>) => {
+    if (e.touches.length !== 1) return
+    touchStartXRef.current = e.touches[0].clientX
+    touchStartYRef.current = e.touches[0].clientY
+    touchDeltaXRef.current = 0
+    isHorizontalSwipeRef.current = false
+  }
+
+  const handleTouchMove = (e: TouchEvent<HTMLDivElement>) => {
+    if (touchStartXRef.current === null || touchStartYRef.current === null) return
+    const currentX = e.touches[0].clientX
+    const currentY = e.touches[0].clientY
+    const deltaX = currentX - touchStartXRef.current
+    const deltaY = currentY - touchStartYRef.current
+
+    if (!isHorizontalSwipeRef.current) {
+      if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 10) {
+        isHorizontalSwipeRef.current = true
+      } else if (Math.abs(deltaY) > Math.abs(deltaX)) {
+        return
+      }
+    }
+
+    if (isHorizontalSwipeRef.current) {
+      e.preventDefault()
+      touchDeltaXRef.current = deltaX
+    }
+  }
+
+  const handleTouchEnd = () => {
+    if (!isHorizontalSwipeRef.current) {
+      resetTouch()
+      return
+    }
+    const delta = touchDeltaXRef.current
+    resetTouch()
+    const threshold = 40
+    if (Math.abs(delta) < threshold) return
+    if (delta > 0) {
+      prevImage()
+    } else {
+      nextImage()
     }
   }
 
@@ -642,8 +718,11 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
                   {/* Gallery */}
                   <div
                     id="gallery-container"
-                    className="w-full aspect-square overflow-hidden relative"
-                    style={{ aspectRatio: '1 / 1' }}
+                    className="w-full aspect-square overflow-hidden relative touch-pan-y"
+                    style={{ aspectRatio: '1 / 1', touchAction: 'pan-y' }}
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
                   >
                   <div
                     id="gallery-slide"
@@ -953,31 +1032,44 @@ export default function ProductDetailPage({ params }: { params: { slug: string }
                   <div className="product-description relative bg-white rounded">
                     {product.description ? (
                       <>
-                        <div
-                          id="desc-content"
-                          className={`${
-                            isDescExpanded ? '' : 'max-h-96'
-                          } overflow-hidden transition-all duration-500 p-4 text-sm`}
-                          style={{
-                            maskImage: isDescExpanded ? 'none' : 'linear-gradient(to bottom, black 70%, transparent 100%)',
-                            WebkitMaskImage: isDescExpanded ? 'none' : 'linear-gradient(to bottom, black 70%, transparent 100%)',
-                          }}
-                        >
+                        <div className="relative">
                           <div
-                            id="desc-html"
-                            className="prose prose-sm max-w-none"
-                            dangerouslySetInnerHTML={{ __html: product.description }}
-                          ></div>
-                        </div>
-                        <div className="flex justify-center py-4">
-                          <button
-                            id="toggle-desc"
-                            className="px-4 py-2 bg-gradient-to-r from-pink-500 to-orange-500 text-white rounded-full shadow-md hover:scale-105 hover:shadow-lg transition"
-                            onClick={() => setIsDescExpanded(!isDescExpanded)}
+                            id="desc-content"
+                            ref={descContentRef}
+                            className="overflow-hidden transition-all duration-500 p-4 text-sm"
+                            style={{
+                              maxHeight: isDescExpanded ? 'none' : `${DESCRIPTION_COLLAPSED_HEIGHT}px`,
+                            }}
                           >
-                            {isDescExpanded ? 'Thu gọn' : 'Xem thêm'}
-                          </button>
+                            <div
+                              id="desc-html"
+                              className="prose prose-sm max-w-none"
+                              dangerouslySetInnerHTML={{ __html: product.description }}
+                            ></div>
+                          </div>
+                          {!isDescExpanded && isDescOverflow && (
+                            <div className="absolute inset-x-0 bottom-0 pt-16 pb-4 flex flex-col items-center justify-end bg-gradient-to-t from-white via-white/80 to-transparent">
+                              <button
+                                id="toggle-desc-more"
+                                className="px-6 py-2 bg-gradient-to-r from-pink-500 to-orange-500 text-white rounded-full text-sm font-semibold shadow-md hover:scale-105 hover:shadow-lg transition"
+                                onClick={() => setIsDescExpanded(true)}
+                              >
+                                Xem thêm
+                              </button>
+                            </div>
+                          )}
                         </div>
+                        {isDescExpanded && isDescOverflow && (
+                          <div className="flex justify-center py-4">
+                            <button
+                              id="toggle-desc"
+                              className="px-4 py-2 bg-gradient-to-r from-pink-500 to-orange-500 text-white rounded-full shadow-md hover:scale-105 hover:shadow-lg transition"
+                              onClick={() => setIsDescExpanded(false)}
+                            >
+                              Thu gọn
+                            </button>
+                          </div>
+                        )}
                       </>
                     ) : (
                       <div className="p-4 text-center text-gray-500 text-sm">
