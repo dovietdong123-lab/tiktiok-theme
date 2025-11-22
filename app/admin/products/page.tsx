@@ -47,14 +47,24 @@ export default function ProductsPage() {
     if (!confirm('Bạn có chắc chắn muốn xóa sản phẩm này?')) return
 
     try {
+      const token = localStorage.getItem('admin_token')
       const response = await fetch(`/api/admin/products/${id}`, {
         method: 'DELETE',
+        headers: {
+          'Authorization': token ? `Bearer ${token}` : '',
+        },
+        credentials: 'include', // Include cookies
       })
-      if (response.ok) {
+      const result = await response.json()
+      if (response.ok && result.success) {
         fetchProducts()
+      } else {
+        console.error('Error deleting product:', result.error || 'Unknown error')
+        alert(result.error || 'Không thể xóa sản phẩm')
       }
     } catch (error) {
       console.error('Error deleting product:', error)
+      alert('Lỗi khi xóa sản phẩm')
     }
   }
 
