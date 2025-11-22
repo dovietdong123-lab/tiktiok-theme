@@ -9,6 +9,7 @@ import CheckoutOverlay from '@/components/CheckoutOverlay'
 import { useRandomizedCount, formatCountAsK } from '@/hooks/useRandomizedCount'
 import { getDisplayPricing } from '@/utils/productPricing'
 import { generateProductStats } from '@/utils/productStats'
+import MediaDisplay from '@/components/MediaDisplay'
 
 interface Product {
   id: number
@@ -612,11 +613,14 @@ useEffect(() => {
                           className="flex items-center gap-3 p-4 border-b hover:bg-gray-100 cursor-pointer transition"
                           data-id={item.id}
                         >
-                          <img
-                            src={item.image || 'https://via.placeholder.com/64'}
-                            alt={item.name}
-                            className="w-16 h-16 rounded object-cover flex-shrink-0"
-                          />
+                          <div className="w-16 h-16 rounded overflow-hidden flex-shrink-0">
+                            <MediaDisplay
+                              url={item.image || 'https://via.placeholder.com/64'}
+                              alt={item.name}
+                              className="w-full h-full object-cover"
+                              autoPlay={false}
+                            />
+                          </div>
                           <span className="flex-1 min-w-0">
                             <span className="font-medium text-gray-800 block truncate">{item.name}</span>
                             <span className="text-sm text-gray-500">{formatPrice(pricing.price)}</span>
@@ -732,13 +736,15 @@ useEffect(() => {
                     }}
                   >
                       {product.gallery.map((img, idx) => (
-                        <img
-                          key={idx}
-                          src={img}
-                          alt={product.name}
-                        className="w-full h-full min-h-full object-cover flex-shrink-0 min-w-full block"
-                        style={{ objectFit: 'cover', objectPosition: 'center' }}
-                        />
+                        <div key={idx} className="w-full h-full min-h-full flex-shrink-0 min-w-full block">
+                          <MediaDisplay
+                            url={resolveMediaUrl(img)}
+                            alt={product.name}
+                            className="w-full h-full object-cover"
+                            controls={true}
+                            autoPlay={false}
+                          />
+                        </div>
                       ))}
                     </div>
 
@@ -848,7 +854,12 @@ useEffect(() => {
                               className="flex gap-2 p-2 border border-gray-200 rounded-lg bg-gray-50 shadow-sm min-w-[160px]"
                               >
                               <div className="w-10 h-10 rounded-md overflow-hidden bg-white flex-shrink-0 border border-gray-100">
-                                  <img src={variantImg} alt={variant.value} className="w-full h-full object-cover" />
+                                  <MediaDisplay
+                                    url={resolveMediaUrl(variantImg)}
+                                    alt={variant.value}
+                                    className="w-full h-full object-cover"
+                                    autoPlay={false}
+                                  />
                                 </div>
                                 <div className="flex-1 min-w-0">
                                 <div className="text-xs text-gray-800">
@@ -959,11 +970,14 @@ useEffect(() => {
                           return (
                             <div key={review.id} className="border-b pb-4 last:border-b-0">
                               <div className="flex items-center gap-2 mb-1">
-                                <img
-                                  src={review.avatar || 'https://via.placeholder.com/64'}
-                                  alt="avatar"
-                                  className="w-8 h-8 rounded-full object-cover"
-                                />
+                                <div className="w-8 h-8 rounded-full overflow-hidden">
+                                  <MediaDisplay
+                                    url={review.avatar || 'https://via.placeholder.com/64'}
+                                    alt="avatar"
+                                    className="w-full h-full object-cover"
+                                    autoPlay={false}
+                                  />
+                                </div>
                                 <span className="text-sm font-semibold text-gray-700 name-review">
                                   {review.user_name || 'Khách hàng'}
                                 </span>
@@ -982,12 +996,14 @@ useEffect(() => {
                               {mergedImages.length > 0 && (
                                 <div className="flex gap-2 mt-3 flex-wrap">
                                   {mergedImages.map((imgSrc, idx) => (
-                                    <img
-                                      key={`${review.id}-img-${idx}`}
-                                      src={imgSrc}
-                                      alt={`${review.product_name || product.name} review photo`}
-                                      className="w-24 h-24 object-cover rounded"
-                                    />
+                                    <div key={`${review.id}-img-${idx}`} className="w-24 h-24 rounded overflow-hidden">
+                                      <MediaDisplay
+                                        url={resolveMediaUrl(imgSrc)}
+                                        alt={`${review.product_name || product.name} review photo`}
+                                        className="w-full h-full object-cover"
+                                        autoPlay={false}
+                                      />
+                                    </div>
                                   ))}
                                 </div>
                               )}
@@ -1097,7 +1113,12 @@ useEffect(() => {
                             className="border rounded-md overflow-hidden shadow-sm product-card cursor-pointer hover:shadow-md transition-shadow bg-white"
                           >
                             <div className="relative">
-                              <img src={p.image} alt={p.name} className="w-full h-48 object-cover" loading="lazy" />
+                              <MediaDisplay
+                                url={resolveMediaUrl(p.image)}
+                                alt={p.name}
+                                className="w-full h-48 object-cover"
+                                autoPlay={true}
+                              />
                               {pricing.discount > 0 && (
                                 <span className="absolute top-2 right-2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded font-bold">
                                   -{pricing.discount}%
