@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import AdminLayout from '@/components/admin/AdminLayout'
 import Toast from '@/components/admin/Toast'
 import MediaLibrary from '@/components/admin/MediaLibrary'
+import MediaDisplay from '@/components/admin/MediaDisplay'
 
 type SettingsForm = {
   storeName: string
@@ -201,7 +202,7 @@ export default function SettingsPage() {
                 <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
                   <div className="w-20 h-20 rounded-full bg-gray-100 border flex items-center justify-center overflow-hidden">
                     {formData.storeLogo ? (
-                      <img src={formData.storeLogo} alt="Store logo" className="w-full h-full object-cover" />
+                      <MediaDisplay url={formData.storeLogo} alt="Store logo" className="w-full h-full object-cover" />
                     ) : (
                       <span className="text-xs text-gray-400 text-center px-2">Chưa có logo</span>
                     )}

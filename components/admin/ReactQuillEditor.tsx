@@ -140,12 +140,25 @@ export default function ReactQuillEditor({ value, onChange, placeholder = 'Nhậ
     }
   }, [])
 
+  // Check if URL is a video
+  const isVideoUrl = (url: string): boolean => {
+    if (!url) return false
+    const lowerUrl = url.toLowerCase()
+    const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.quicktime', '.m4v', '.flv']
+    return videoExtensions.some(ext => lowerUrl.endsWith(ext) || lowerUrl.includes(ext + '?')) ||
+           lowerUrl.includes('/video/') || 
+           lowerUrl.includes('video/') ||
+           lowerUrl.includes('mime_type=video') ||
+           lowerUrl.includes('type=video')
+  }
+
   const handleImageSelect = useCallback((url: string) => {
     setShowMediaLibrary(false)
     
     // Use setTimeout to ensure Quill is ready
     setTimeout(() => {
       const quill = getQuillInstance()
+      const isVideo = isVideoUrl(url)
       
       if (quill) {
         try {
@@ -157,11 +170,16 @@ export default function ReactQuillEditor({ value, onChange, placeholder = 'Nhậ
             range = { index: length - 1, length: 0 }
           }
           
-          // Insert image
-          quill.insertEmbed(range.index, 'image', url, 'user')
-          
-          // Move cursor after image
-          quill.setSelection(range.index + 1, 0)
+          if (isVideo) {
+            // Insert video as HTML
+            const videoTag = `<video src="${url}" controls style="max-width: 100%; height: auto;"></video>`
+            quill.clipboard.dangerouslyPasteHTML(range.index, videoTag)
+            quill.setSelection(range.index + videoTag.length, 0)
+          } else {
+            // Insert image
+            quill.insertEmbed(range.index, 'image', url, 'user')
+            quill.setSelection(range.index + 1, 0)
+          }
           
           // Update value - trigger onChange manually
           setTimeout(() => {
@@ -169,18 +187,22 @@ export default function ReactQuillEditor({ value, onChange, placeholder = 'Nhậ
             onChange(newContent)
           }, 50)
         } catch (error) {
-          console.error('Error inserting image:', error)
+          console.error('Error inserting media:', error)
           // Fallback: insert HTML directly
           const currentContent = value || ''
-          const imgTag = `<img src="${url}" alt="" style="max-width: 100%; height: auto;" />`
-          onChange(currentContent + imgTag)
+          const mediaTag = isVideo 
+            ? `<video src="${url}" controls style="max-width: 100%; height: auto;"></video>`
+            : `<img src="${url}" alt="" style="max-width: 100%; height: auto;" />`
+          onChange(currentContent + mediaTag)
         }
       } else {
         console.error('Quill instance not found')
         // Fallback: insert HTML directly
         const currentContent = value || ''
-        const imgTag = `<img src="${url}" alt="" style="max-width: 100%; height: auto;" />`
-        onChange(currentContent + imgTag)
+        const mediaTag = isVideo 
+          ? `<video src="${url}" controls style="max-width: 100%; height: auto;"></video>`
+          : `<img src="${url}" alt="" style="max-width: 100%; height: auto;" />`
+        onChange(currentContent + mediaTag)
       }
     }, 150)
   }, [getQuillInstance, onChange, value])

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import MediaLibrary from './MediaLibrary'
+import MediaDisplay from './MediaDisplay'
 import Toast from './Toast'
 
 interface CategoryFormProps {
@@ -275,7 +276,9 @@ export default function CategoryForm({ onSubmit, initialData, loading: externalL
               </div>
               {formData.image && (
                 <div className="mt-3">
-                  <img src={formData.image} alt="Preview" className="w-32 h-32 object-cover rounded border" />
+                  <div className="w-32 h-32 rounded border overflow-hidden">
+                    <MediaDisplay url={formData.image} alt="Preview" className="w-full h-full object-cover" />
+                  </div>
                   <button
                     type="button"
                     onClick={() => setFormData((prev) => ({ ...prev, image: '' }))}

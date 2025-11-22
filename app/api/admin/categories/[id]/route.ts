@@ -106,7 +106,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   }
 }
 
-// DELETE - Xóa danh mục (soft delete)
+// DELETE - Xóa danh mục (hard delete)
 export async function DELETE(request: Request, { params }: { params: { id: string } }) {
   try {
     await requireAuth() // Check authentication
@@ -116,6 +116,15 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
   }
   try {
     const id = parseInt(params.id)
+
+    // Check if category exists
+    const categories = await query('SELECT id FROM categories WHERE id = ?', [id])
+    if (!Array.isArray(categories) || categories.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Category not found' },
+        { status: 404 }
+      )
+    }
 
     // Check if category has products
     const products = await query('SELECT COUNT(*) as count FROM products WHERE category_id = ?', [
@@ -127,13 +136,14 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
       return NextResponse.json(
         {
           success: false,
-          error: `Cannot delete category with ${count} products. Please remove products first.`,
+          error: `Không thể xóa danh mục này vì có ${count} sản phẩm. Vui lòng xóa hoặc chuyển các sản phẩm trước.`,
         },
         { status: 400 }
       )
     }
 
-    await query('UPDATE categories SET status = "deleted", updated_at = NOW() WHERE id = ?', [id])
+    // Delete category
+    await query('DELETE FROM categories WHERE id = ?', [id])
 
     return NextResponse.json({
       success: true,

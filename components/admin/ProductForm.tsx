@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import MediaLibrary from './MediaLibrary'
+import MediaDisplay from './MediaDisplay'
 import Toast from './Toast'
 
 // Dynamic import ReactQuillEditor để tránh SSR issues
@@ -721,7 +722,9 @@ const [reviewMediaType, setReviewMediaType] = useState<'avatar' | 'gallery'>('av
               </div>
               {formData.image && (
                 <div className="mt-3">
-                  <img src={formData.image} alt="Preview" className="w-32 h-32 object-cover rounded border" />
+                  <div className="w-32 h-32 rounded border overflow-hidden">
+                    <MediaDisplay url={formData.image} alt="Preview" className="w-full h-full object-cover" />
+                  </div>
                   <button
                     type="button"
                     onClick={() => setFormData((prev) => ({ ...prev, image: '' }))}
@@ -765,11 +768,13 @@ const [reviewMediaType, setReviewMediaType] = useState<'avatar' | 'gallery'>('av
                       <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3 mt-3">
                         {galleryUrls.map((url: string, index: number) => (
                           <div key={index} className="relative group">
-                            <img
-                              src={url}
-                              alt={`Gallery ${index + 1}`}
-                              className="w-full aspect-square object-cover rounded border"
-                            />
+                            <div className="w-full aspect-square rounded border overflow-hidden">
+                              <MediaDisplay
+                                url={url}
+                                alt={`Gallery ${index + 1}`}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
                             <button
                               type="button"
                               onClick={() => {
@@ -955,11 +960,13 @@ const [reviewMediaType, setReviewMediaType] = useState<'avatar' | 'gallery'>('av
                           <div className="flex-shrink-0">
                             {valueItem.image ? (
                               <div className="relative">
-                                <img
-                                  src={valueItem.image}
-                                  alt={valueItem.value}
-                                  className="w-20 h-20 object-cover rounded border border-gray-300"
-                                />
+                                <div className="w-20 h-20 rounded border border-gray-300 overflow-hidden">
+                                  <MediaDisplay
+                                    url={valueItem.image}
+                                    alt={valueItem.value}
+                                    className="w-full h-full object-cover"
+                                  />
+                                </div>
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -1257,7 +1264,7 @@ const [reviewMediaType, setReviewMediaType] = useState<'avatar' | 'gallery'>('av
                 <div className="flex flex-wrap gap-3">
                   {Array.isArray(review.images) && review.images.length > 0 && review.images.map((imgUrl, imgIndex) => (
                     <div key={`${index}-img-${imgIndex}`} className="relative w-20 h-20 rounded-lg overflow-hidden border bg-gray-50">
-                      <img src={imgUrl} alt={`Review image ${imgIndex + 1}`} className="w-full h-full object-cover" />
+                      <MediaDisplay url={imgUrl} alt={`Review image ${imgIndex + 1}`} className="w-full h-full object-cover" />
                       <button
                         type="button"
                         onClick={() => removeReviewImage(index, imgIndex)}

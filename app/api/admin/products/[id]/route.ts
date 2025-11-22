@@ -254,7 +254,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
   }
 }
 
-// DELETE - Xóa sản phẩm (soft delete)
+// DELETE - Xóa sản phẩm (hard delete)
 export async function DELETE(request: Request, { params }: { params: { id: string } }) {
   try {
     await requireAuth() // Check authentication
@@ -264,13 +264,47 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
   try {
     const id = parseInt(params.id)
 
-    await query('UPDATE products SET status = "deleted", updated_at = NOW() WHERE id = ?', [id])
+    // Check if product exists
+    const products = await query('SELECT id FROM products WHERE id = ?', [id])
+    if (!Array.isArray(products) || products.length === 0) {
+      return NextResponse.json(
+        { success: false, error: 'Product not found' },
+        { status: 404 }
+      )
+    }
+
+    // Check if product is used in any orders (order_items has ON DELETE RESTRICT)
+    const orderItems = await query('SELECT COUNT(*) as count FROM order_items WHERE product_id = ?', [id])
+    const count = (orderItems as any[])[0]?.count || 0
+
+    if (count > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `Không thể xóa sản phẩm này vì đã có ${count} đơn hàng sử dụng. Vui lòng xóa các đơn hàng liên quan trước.`,
+        },
+        { status: 400 }
+      )
+    }
+
+    // Delete product (cart_items and product_reviews will be deleted automatically via CASCADE)
+    await query('DELETE FROM products WHERE id = ?', [id])
 
     return NextResponse.json({
       success: true,
       message: 'Product deleted successfully',
     })
   } catch (error: any) {
+    // Check if error is due to foreign key constraint
+    if (error.message && error.message.includes('foreign key constraint')) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Không thể xóa sản phẩm này vì đang được sử dụng trong đơn hàng.',
+        },
+        { status: 400 }
+      )
+    }
     return NextResponse.json(
       {
         success: false,
