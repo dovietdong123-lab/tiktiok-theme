@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { animateProductToCart } from '@/utils/cartAnimation'
+import MediaDisplay from '@/components/MediaDisplay'
 
 interface Variant {
   id?: number
@@ -345,7 +346,12 @@ export default function CartBottomSheet({ isOpen, onClose, product, mode = 'cart
                     }`}
                   >
                     <div className="aspect-square bg-gray-50 overflow-hidden">
-                      <img src={variantImage} alt={variant.value} className="object-cover w-full h-full" />
+                      <MediaDisplay
+                        url={variantImage}
+                        alt={variant.value}
+                        className="object-cover w-full h-full"
+                        autoPlay={false}
+                      />
                     </div>
                     <div className="p-2 text-center space-y-1">
                       <span className={`text-xs font-semibold ${isSelected ? 'text-rose-600' : 'text-gray-800'}`}>

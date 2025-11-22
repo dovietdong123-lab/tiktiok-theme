@@ -115,7 +115,14 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     return NextResponse.json({ success: false, error: 'Unauthorized - ' + (error.message || 'Invalid session') }, { status: 401 })
   }
   try {
+    // Validate and parse ID
     const id = parseInt(params.id)
+    if (isNaN(id) || id <= 0) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid category ID' },
+        { status: 400 }
+      )
+    }
 
     // Check if category exists
     const categories = await query('SELECT id FROM categories WHERE id = ?', [id])
@@ -130,7 +137,7 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     const products = await query('SELECT COUNT(*) as count FROM products WHERE category_id = ?', [
       id,
     ])
-    const count = (products as any[])[0]?.count || 0
+    const count = Array.isArray(products) && products.length > 0 ? ((products[0] as any)?.count || 0) : 0
 
     if (count > 0) {
       return NextResponse.json(
@@ -143,13 +150,42 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     }
 
     // Delete category
-    await query('DELETE FROM categories WHERE id = ?', [id])
+    const deleteResult = await query('DELETE FROM categories WHERE id = ?', [id])
+    
+    // Verify deletion was successful
+    const verifyCategories = await query('SELECT id FROM categories WHERE id = ?', [id])
+    if (Array.isArray(verifyCategories) && verifyCategories.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Failed to delete category. Please try again.',
+        },
+        { status: 500 }
+      )
+    }
 
     return NextResponse.json({
       success: true,
       message: 'Category deleted successfully',
     })
   } catch (error: any) {
+    console.error('Error deleting category:', error)
+    
+    // Check if error is due to foreign key constraint
+    if (error.message && (
+      error.message.includes('foreign key constraint') ||
+      error.message.includes('FOREIGN KEY') ||
+      error.code === 'ER_ROW_IS_REFERENCED_2'
+    )) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Không thể xóa danh mục này vì đang được sử dụng.',
+        },
+        { status: 400 }
+      )
+    }
+    
     return NextResponse.json(
       {
         success: false,

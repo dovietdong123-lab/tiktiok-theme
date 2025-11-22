@@ -6,6 +6,7 @@ import CartOverlay from '@/components/CartOverlay'
 import CheckoutOverlay from '@/components/CheckoutOverlay'
 import { useRandomizedCount, formatCountAsK } from '@/hooks/useRandomizedCount'
 import { getDisplayPricing } from '@/utils/productPricing'
+import MediaDisplay from '@/components/MediaDisplay'
 
 const imageBaseUrl = process.env.NEXT_PUBLIC_IMAGE_BASE_URL || ''
 
@@ -518,13 +519,15 @@ useEffect(() => {
                     }}
                   >
                     {product.gallery.map((img, idx) => (
-                      <img
-                        key={idx}
-                        src={img}
-                        alt={product.name}
-                        className="w-full h-full min-h-full object-cover flex-shrink-0 min-w-full block"
-                        style={{ objectFit: 'cover', objectPosition: 'center' }}
-                      />
+                      <div key={idx} className="w-full h-full min-h-full flex-shrink-0 min-w-full block">
+                        <MediaDisplay
+                          url={resolveMediaUrl(img)}
+                          alt={product.name}
+                          className="w-full h-full object-cover"
+                          controls={true}
+                          autoPlay={false}
+                        />
+                      </div>
                     ))}
                   </div>
 
@@ -634,7 +637,12 @@ useEffect(() => {
                               className="flex gap-2 p-2 border border-gray-200 rounded-lg bg-gray-50 shadow-sm min-w-[150px]"
                             >
                               <div className="w-10 h-10 rounded-md overflow-hidden bg-white flex-shrink-0 border border-gray-100">
-                                <img src={variantImg} alt={variant.value} className="w-full h-full object-cover" />
+                                <MediaDisplay
+                                  url={resolveMediaUrl(variantImg)}
+                                  alt={variant.value}
+                                  className="w-full h-full object-cover"
+                                  autoPlay={false}
+                                />
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="text-xs font-semibold text-gray-800">
@@ -873,7 +881,12 @@ useEffect(() => {
                         className="border rounded-md overflow-hidden shadow-sm view-detail-btn product-card cursor-pointer hover:shadow-md transition-shadow"
                       >
                         <div className="relative">
-                          <img src={p.image} alt={p.name} className="w-full h-48 object-cover" loading="lazy" />
+                          <MediaDisplay
+                            url={resolveMediaUrl(p.image)}
+                            alt={p.name}
+                            className="w-full h-48 object-cover"
+                            autoPlay={true}
+                          />
                           {pricing.discount > 0 && (
                             <span className="absolute top-2 right-2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded">
                               -{pricing.discount}%

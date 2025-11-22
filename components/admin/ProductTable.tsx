@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import MediaDisplay from '@/components/MediaDisplay'
 
 interface Product {
   id: number
@@ -59,11 +60,14 @@ export default function ProductTable({ products, onDelete }: ProductTableProps) 
             products.map((product) => (
               <tr key={product.id} className="hover:bg-gray-50">
                 <td className="px-6 py-4 whitespace-nowrap">
-                  <img
-                    src={product.image || '/placeholder.jpg'}
-                    alt={product.name}
-                    className="w-16 h-16 object-cover rounded"
-                  />
+                  <div className="w-16 h-16 rounded overflow-hidden">
+                    <MediaDisplay
+                      url={product.image || '/placeholder.jpg'}
+                      alt={product.name}
+                      className="w-full h-full object-cover"
+                      autoPlay={true}
+                    />
+                  </div>
                 </td>
                 <td className="px-6 py-4">
                   <div className="text-sm font-medium text-gray-900">{product.name}</div>

@@ -262,7 +262,14 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 })
   }
   try {
+    // Validate and parse ID
     const id = parseInt(params.id)
+    if (isNaN(id) || id <= 0) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid product ID' },
+        { status: 400 }
+      )
+    }
 
     // Check if product exists
     const products = await query('SELECT id FROM products WHERE id = ?', [id])
@@ -275,7 +282,7 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
 
     // Check if product is used in any orders (order_items has ON DELETE RESTRICT)
     const orderItems = await query('SELECT COUNT(*) as count FROM order_items WHERE product_id = ?', [id])
-    const count = (orderItems as any[])[0]?.count || 0
+    const count = Array.isArray(orderItems) && orderItems.length > 0 ? ((orderItems[0] as any)?.count || 0) : 0
 
     if (count > 0) {
       return NextResponse.json(
@@ -288,15 +295,33 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     }
 
     // Delete product (cart_items and product_reviews will be deleted automatically via CASCADE)
-    await query('DELETE FROM products WHERE id = ?', [id])
+    const deleteResult = await query('DELETE FROM products WHERE id = ?', [id])
+    
+    // Verify deletion was successful
+    const verifyProducts = await query('SELECT id FROM products WHERE id = ?', [id])
+    if (Array.isArray(verifyProducts) && verifyProducts.length > 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Failed to delete product. Please try again.',
+        },
+        { status: 500 }
+      )
+    }
 
     return NextResponse.json({
       success: true,
       message: 'Product deleted successfully',
     })
   } catch (error: any) {
+    console.error('Error deleting product:', error)
+    
     // Check if error is due to foreign key constraint
-    if (error.message && error.message.includes('foreign key constraint')) {
+    if (error.message && (
+      error.message.includes('foreign key constraint') ||
+      error.message.includes('FOREIGN KEY') ||
+      error.code === 'ER_ROW_IS_REFERENCED_2'
+    )) {
       return NextResponse.json(
         {
           success: false,
@@ -305,6 +330,7 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
         { status: 400 }
       )
     }
+    
     return NextResponse.json(
       {
         success: false,

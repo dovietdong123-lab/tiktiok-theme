@@ -4,6 +4,7 @@ import { useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { generateProductStats } from '@/utils/productStats'
 import { getDisplayPricing } from '@/utils/productPricing'
+import MediaDisplay from '@/components/MediaDisplay'
 
 interface Product {
   id: number
@@ -76,11 +77,11 @@ const formatCurrency = (value: number) => `${Number(value || 0).toLocaleString('
         onClick={handleClick}
       >
         <div className="relative">
-          <img
-            src={getImageUrl(product.image)}
+          <MediaDisplay
+            url={getImageUrl(product.image)}
             alt={product.name}
             className="w-full h-48 object-cover"
-            loading="lazy"
+            autoPlay={true}
           />
           {pricing.discount > 0 && (
             <span className="absolute top-2 right-2 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded">
@@ -123,11 +124,11 @@ const formatCurrency = (value: number) => `${Number(value || 0).toLocaleString('
         </span>
       )}
       <div className="flex-1 flex items-end relative">
-        <img
-          src={getImageUrl(product.image)}
+        <MediaDisplay
+          url={getImageUrl(product.image)}
           alt={product.name}
           className={`w-full ${height} object-cover rounded`}
-          loading="lazy"
+          autoPlay={true}
         />
         {pricing.discount > 0 && (
           <span className="absolute top-2 right-2 bg-red-600 text-white text-xs font-semibold px-1.5 py-0.5 rounded">

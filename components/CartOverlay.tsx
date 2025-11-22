@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import MediaDisplay from '@/components/MediaDisplay'
 
 interface CartItem {
   productId: number
@@ -322,7 +323,7 @@ export default function CartOverlay({ isOpen, onClose, onCheckout }: CartOverlay
                           <div className="px-3 pt-3 pb-4 rounded-xl border border-gray-200 bg-white shadow-sm">
                             <div className="flex gap-3">
                               <div className="w-20 h-20 shrink-0 rounded-lg border overflow-hidden bg-gray-50 flex items-center justify-center">
-                                <img src={item.image} alt={item.productName} className="w-full h-full object-cover" />
+                                <MediaDisplay url={item.image} alt={item.productName} className="w-full h-full object-cover" autoPlay={false} />
                               </div>
                               <div className="flex-1 min-w-0 space-y-2">
                                 <p className="text-sm font-semibold text-gray-900 line-clamp-2">{item.productName}</p>

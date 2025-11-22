@@ -140,12 +140,23 @@ export default function ReactQuillEditor({ value, onChange, placeholder = 'Nhậ
     }
   }, [])
 
+  // Sanitize URL to prevent XSS
+  const sanitizeUrl = (url: string): string => {
+    if (!url || typeof url !== 'string') return ''
+    // Remove potentially dangerous characters but keep valid URL characters
+    // Allow: alphanumeric, :, /, ?, =, &, #, ., -, _, ~, %, +
+    return url.replace(/[<>"']/g, '')
+  }
+
   // Check if URL is a video
   const isVideoUrl = (url: string): boolean => {
-    if (!url) return false
-    const lowerUrl = url.toLowerCase()
+    if (!url || typeof url !== 'string') return false
+    const trimmedUrl = url.trim()
+    if (!trimmedUrl) return false
+    
+    const lowerUrl = trimmedUrl.toLowerCase()
     const videoExtensions = ['.mp4', '.webm', '.ogg', '.mov', '.avi', '.quicktime', '.m4v', '.flv']
-    return videoExtensions.some(ext => lowerUrl.endsWith(ext) || lowerUrl.includes(ext + '?')) ||
+    return videoExtensions.some(ext => lowerUrl.endsWith(ext) || lowerUrl.includes(ext + '?') || lowerUrl.includes(ext + '&')) ||
            lowerUrl.includes('/video/') || 
            lowerUrl.includes('video/') ||
            lowerUrl.includes('mime_type=video') ||
@@ -153,12 +164,25 @@ export default function ReactQuillEditor({ value, onChange, placeholder = 'Nhậ
   }
 
   const handleImageSelect = useCallback((url: string) => {
+    if (!url || typeof url !== 'string') {
+      console.warn('Invalid URL provided to handleImageSelect')
+      return
+    }
+    
     setShowMediaLibrary(false)
+    
+    // Sanitize URL to prevent XSS
+    const sanitizedUrl = sanitizeUrl(url)
+    if (!sanitizedUrl) {
+      console.warn('URL was empty after sanitization')
+      return
+    }
+    
+    const isVideo = isVideoUrl(sanitizedUrl)
     
     // Use setTimeout to ensure Quill is ready
     setTimeout(() => {
       const quill = getQuillInstance()
-      const isVideo = isVideoUrl(url)
       
       if (quill) {
         try {
@@ -167,17 +191,30 @@ export default function ReactQuillEditor({ value, onChange, placeholder = 'Nhậ
           if (!range) {
             // If no selection, insert at the end
             const length = quill.getLength()
-            range = { index: length - 1, length: 0 }
+            range = { index: Math.max(0, length - 1), length: 0 }
           }
           
           if (isVideo) {
-            // Insert video as HTML
-            const videoTag = `<video src="${url}" controls style="max-width: 100%; height: auto;"></video>`
+            // Insert video as HTML - use dangerouslyPasteHTML which handles HTML properly
+            // Escape URL in HTML attribute to prevent XSS
+            const escapedUrl = sanitizedUrl
+              .replace(/&/g, '&amp;')
+              .replace(/</g, '&lt;')
+              .replace(/>/g, '&gt;')
+              .replace(/"/g, '&quot;')
+              .replace(/'/g, '&#x27;')
+            
+            const videoTag = `<video src="${escapedUrl}" controls style="max-width: 100%; height: auto;"></video>`
             quill.clipboard.dangerouslyPasteHTML(range.index, videoTag)
-            quill.setSelection(range.index + videoTag.length, 0)
+            
+            // Get the actual length after paste (HTML is parsed, so length is different)
+            setTimeout(() => {
+              const newLength = quill.getLength()
+              quill.setSelection(newLength - 1, 0)
+            }, 10)
           } else {
-            // Insert image
-            quill.insertEmbed(range.index, 'image', url, 'user')
+            // Insert image using Quill's safe embed method
+            quill.insertEmbed(range.index, 'image', sanitizedUrl, 'user')
             quill.setSelection(range.index + 1, 0)
           }
           
@@ -188,20 +225,34 @@ export default function ReactQuillEditor({ value, onChange, placeholder = 'Nhậ
           }, 50)
         } catch (error) {
           console.error('Error inserting media:', error)
-          // Fallback: insert HTML directly
+          // Fallback: insert HTML directly (with sanitized URL)
           const currentContent = value || ''
+          const escapedUrl = sanitizedUrl
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#x27;')
+          
           const mediaTag = isVideo 
-            ? `<video src="${url}" controls style="max-width: 100%; height: auto;"></video>`
-            : `<img src="${url}" alt="" style="max-width: 100%; height: auto;" />`
+            ? `<video src="${escapedUrl}" controls style="max-width: 100%; height: auto;"></video>`
+            : `<img src="${escapedUrl}" alt="" style="max-width: 100%; height: auto;" />`
           onChange(currentContent + mediaTag)
         }
       } else {
         console.error('Quill instance not found')
-        // Fallback: insert HTML directly
+        // Fallback: insert HTML directly (with sanitized URL)
         const currentContent = value || ''
+        const escapedUrl = sanitizedUrl
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#x27;')
+        
         const mediaTag = isVideo 
-          ? `<video src="${url}" controls style="max-width: 100%; height: auto;"></video>`
-          : `<img src="${url}" alt="" style="max-width: 100%; height: auto;" />`
+          ? `<video src="${escapedUrl}" controls style="max-width: 100%; height: auto;"></video>`
+          : `<img src="${escapedUrl}" alt="" style="max-width: 100%; height: auto;" />`
         onChange(currentContent + mediaTag)
       }
     }, 150)
