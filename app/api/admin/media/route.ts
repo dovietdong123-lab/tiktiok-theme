@@ -138,19 +138,24 @@ export async function POST(request: Request) {
     }
 
     // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+    const allowedImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+    const allowedVideoTypes = ['video/mp4', 'video/webm', 'video/ogg', 'video/quicktime', 'video/x-msvideo']
+    const allowedTypes = [...allowedImageTypes, ...allowedVideoTypes]
+    
     if (!allowedTypes.includes(file.type)) {
       return NextResponse.json(
-        { success: false, error: 'Invalid file type. Only images are allowed.' },
+        { success: false, error: 'Invalid file type. Only images and videos are allowed.' },
         { status: 400 }
       )
     }
 
-    // Validate file size (max 5MB)
-    const maxSize = 5 * 1024 * 1024 // 5MB
+    // Validate file size (max 50MB for videos, 5MB for images)
+    const isVideo = file.type.startsWith('video/')
+    const maxSize = isVideo ? 50 * 1024 * 1024 : 5 * 1024 * 1024 // 50MB for videos, 5MB for images
     if (file.size > maxSize) {
+      const maxSizeMB = isVideo ? 50 : 5
       return NextResponse.json(
-        { success: false, error: 'File size too large. Maximum size is 5MB.' },
+        { success: false, error: `File size too large. Maximum size is ${maxSizeMB}MB.` },
         { status: 400 }
       )
     }

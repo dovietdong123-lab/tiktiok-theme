@@ -145,7 +145,7 @@ export default function MediaLibrary({ onSelect, onSelectMultiple, isOpen = true
   }
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Bạn có chắc muốn xóa ảnh này?')) return
+    if (!confirm('Bạn có chắc muốn xóa file này?')) return
 
     try {
       const token = localStorage.getItem('admin_token')
@@ -215,7 +215,7 @@ export default function MediaLibrary({ onSelect, onSelectMultiple, isOpen = true
   }
 
   const handleDeleteFolder = async (id: number) => {
-    if (!confirm('Bạn có chắc muốn xóa thư mục này? Tất cả ảnh trong thư mục sẽ được chuyển về thư mục gốc.')) return
+    if (!confirm('Bạn có chắc muốn xóa thư mục này? Tất cả media trong thư mục sẽ được chuyển về thư mục gốc.')) return
 
     try {
       const token = localStorage.getItem('admin_token')
@@ -255,7 +255,7 @@ export default function MediaLibrary({ onSelect, onSelectMultiple, isOpen = true
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b">
           <div className="flex items-center gap-4">
-            <h2 className="text-2xl font-bold text-gray-900">Thư viện ảnh</h2>
+            <h2 className="text-2xl font-bold text-gray-900">Thư viện media</h2>
             {currentFolderId && (
               <button
                 type="button"
@@ -277,7 +277,7 @@ export default function MediaLibrary({ onSelect, onSelectMultiple, isOpen = true
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*"
+              accept="image/*,video/*"
               onChange={handleUpload}
               className="hidden"
               id="media-upload"
@@ -290,7 +290,7 @@ export default function MediaLibrary({ onSelect, onSelectMultiple, isOpen = true
                   : 'bg-blue-600 text-white hover:bg-blue-700'
               }`}
             >
-              {uploading ? 'Đang upload...' : '📤 Upload ảnh'}
+              {uploading ? 'Đang upload...' : '📤 Upload media'}
             </label>
             {multiple && selectedUrls.length > 0 && (
               <button
@@ -405,7 +405,7 @@ export default function MediaLibrary({ onSelect, onSelectMultiple, isOpen = true
                     : 'text-gray-700 hover:bg-gray-100'
                 }`}
               >
-                📂 Tất cả ảnh
+                📂 Tất cả media
               </button>
               {folders.map((folder) => (
                 <div
@@ -451,7 +451,7 @@ export default function MediaLibrary({ onSelect, onSelectMultiple, isOpen = true
             ) : media.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-gray-500">
-                  {currentFolderId ? 'Thư mục này chưa có ảnh nào.' : 'Chưa có ảnh nào. Hãy upload ảnh đầu tiên!'}
+                  {currentFolderId ? 'Thư mục này chưa có media nào.' : 'Chưa có media nào. Hãy upload file đầu tiên!'}
                 </p>
               </div>
             ) : (
@@ -484,11 +484,35 @@ export default function MediaLibrary({ onSelect, onSelectMultiple, isOpen = true
                       }}
                     >
                       <div className="aspect-square relative bg-gray-100">
-                        <img
-                          src={item.url}
-                          alt={item.alt_text || item.original_name}
-                          className="w-full h-full object-cover"
-                        />
+                        {item.mime_type?.startsWith('video/') ? (
+                          <video
+                            src={item.url}
+                            className="w-full h-full object-cover"
+                            muted
+                            playsInline
+                            onMouseEnter={(e) => {
+                              const video = e.currentTarget
+                              video.play().catch(() => {})
+                            }}
+                            onMouseLeave={(e) => {
+                              const video = e.currentTarget
+                              video.pause()
+                              video.currentTime = 0
+                            }}
+                          />
+                        ) : (
+                          <img
+                            src={item.url}
+                            alt={item.alt_text || item.original_name}
+                            className="w-full h-full object-cover"
+                          />
+                        )}
+                        {item.mime_type?.startsWith('video/') && (
+                          <div className="absolute top-2 left-2 bg-black bg-opacity-70 text-white px-2 py-1 rounded text-xs flex items-center gap-1">
+                            <span>▶</span>
+                            <span>Video</span>
+                          </div>
+                        )}
                         {multiple && isSelected && (
                           <div className="absolute top-2 right-2 bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">
                             ✓
