@@ -72,7 +72,7 @@ const formatCurrency = (value: number) => `${Number(value || 0).toLocaleString('
   if (detailed) {
     return (
       <div
-        className="border rounded-md overflow-hidden shadow-sm view-detail-btn product-card cursor-pointer hover:shadow-md transition-shadow"
+        className="border rounded-md overflow-hidden shadow-sm view-detail-btn product-card cursor-pointer hover:shadow-md transition-shadow flex flex-col h-full"
         data-id={product.id}
         onClick={handleClick}
       >
@@ -89,8 +89,8 @@ const formatCurrency = (value: number) => `${Number(value || 0).toLocaleString('
             </span>
           )}
         </div>
-        <div className="p-2">
-          <h3 className="text-xs font-medium line-clamp-2">{product.name}</h3>
+        <div className="p-2 flex flex-col flex-1">
+          <h3 className="text-xs font-medium line-clamp-2 min-h-[2.5rem]">{product.name}</h3>
           <div className="space-y-1 mt-1">
             <span className="text-red-600 font-bold text-sm">{formatCurrency(pricing.price)}</span>
             {pricing.regular > pricing.price && (
@@ -112,7 +112,7 @@ const formatCurrency = (value: number) => `${Number(value || 0).toLocaleString('
 
   return (
     <div
-      className="product-card relative bg-white rounded-lg overflow-hidden shadow-sm p-2 flex flex-col cursor-pointer hover:shadow-md transition-shadow"
+      className="product-card relative bg-white rounded-lg overflow-hidden shadow-sm p-2 flex flex-col h-full cursor-pointer hover:shadow-md transition-shadow"
       data-id={product.id}
       onClick={handleClick}
     >
@@ -136,8 +136,8 @@ const formatCurrency = (value: number) => `${Number(value || 0).toLocaleString('
           </span>
         )}
       </div>
-      <div className="mt-2 space-y-1">
-        <h3 className="text-xs font-medium line-clamp-2 leading-snug">{product.name}</h3>
+      <div className="mt-2 space-y-1 flex-shrink-0">
+        <h3 className="text-xs font-medium line-clamp-2 leading-snug min-h-[2.5rem]">{product.name}</h3>
         <div className="text-red-600 font-semibold text-sm">{formatCurrency(pricing.price)}</div>
         {pricing.regular > pricing.price && (
           <div className="text-gray-500 line-through text-[11px]">{formatCurrency(pricing.regular)}</div>

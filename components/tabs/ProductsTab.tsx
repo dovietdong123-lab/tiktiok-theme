@@ -86,7 +86,7 @@ export default function ProductsTab({
             </button>
           </div>
         )}
-        <div id="product-list" className="grid grid-cols-2 gap-4">
+        <div id="product-list" className="grid grid-cols-2 gap-4 items-stretch">
           {loading ? (
             // Skeleton loading
             <>

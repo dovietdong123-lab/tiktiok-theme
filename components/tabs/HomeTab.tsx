@@ -102,7 +102,7 @@ export default function HomeTab({ isActive }: HomeTabProps) {
           <span className="text-xs text-gray-500">{storeName}</span>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 items-end" id="featured-products">
+        <div className="grid grid-cols-3 gap-3 items-stretch" id="featured-products">
           {loading ? (
             // Skeleton loading
             <>
@@ -162,7 +162,7 @@ export default function HomeTab({ isActive }: HomeTabProps) {
         </div>
 
         {/* Recommended Products */}
-        <div id="product-list-home" className="grid grid-cols-2 gap-2 items-end">
+        <div id="product-list-home" className="grid grid-cols-2 gap-2 items-stretch">
           {loading ? (
             // Skeleton loading
             <>
