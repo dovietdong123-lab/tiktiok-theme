@@ -52,6 +52,13 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  const settings = await loadStoreSettings()
+
+  const storeName = (settings.storeName || 'TikTiok Shop').trim()
+  const supportEmail = (settings.supportEmail || '').trim()
+  const hotline = (settings.hotline || '').trim()
+  const businessAddress = (settings.businessAddress || '').trim()
+
   return (
     <html lang="vi">
       <head>
@@ -61,6 +68,32 @@ export default async function RootLayout({
       <body className="bg-white w-full relative">
         <div className="w-full max-w-[500px] mx-auto relative">
           {children}
+
+          <footer className="mt-4 px-4 py-3 text-xs text-gray-600 bg-gray-50 border-t border-gray-200">
+            <div className="space-y-1">
+              {storeName && <p className="text-sm font-semibold text-gray-900">{storeName}</p>}
+              <div className="flex flex-col gap-0.5">
+                {supportEmail && (
+                  <p>
+                    <span className="font-medium">Email hỗ trợ:</span>{' '}
+                    <a href={`mailto:${supportEmail}`} className="text-blue-600 hover:underline">
+                      {supportEmail}
+                    </a>
+                  </p>
+                )}
+                {hotline && (
+                  <p>
+                    <span className="font-medium">Hotline:</span> {hotline}
+                  </p>
+                )}
+                {businessAddress && (
+                  <p>
+                    <span className="font-medium">Địa chỉ:</span> {businessAddress}
+                  </p>
+                )}
+              </div>
+            </div>
+          </footer>
         </div>
       </body>
     </html>

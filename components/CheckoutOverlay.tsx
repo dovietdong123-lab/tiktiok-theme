@@ -270,10 +270,13 @@ export default function CheckoutOverlay({ isOpen, onClose, directProduct }: Chec
       isValid = false
     }
 
-    // Validate phone
+    // Validate phone - must be exactly 10 digits
     const phoneDigits = customerPhone.replace(/\D/g, '')
-    if (phoneDigits.length < 9 || phoneDigits.length > 11) {
-      newErrors.phone = 'Số điện thoại không hợp lệ.'
+    if (phoneDigits.length !== 10) {
+      newErrors.phone = 'Số điện thoại phải có đúng 10 số.'
+      isValid = false
+    } else if (!phoneDigits.startsWith('0')) {
+      newErrors.phone = 'Số điện thoại phải bắt đầu bằng số 0.'
       isValid = false
     }
 
@@ -653,11 +656,38 @@ export default function CheckoutOverlay({ isOpen, onClose, directProduct }: Chec
                 type="tel"
                 value={customerPhone}
                 onChange={(e) => {
-                  setCustomerPhone(e.target.value)
+                  // Chỉ cho phép số, giới hạn 10 số
+                  let value = e.target.value.replace(/\D/g, '')
+                  
+                  // Giới hạn tối đa 10 số
+                  if (value.length > 10) {
+                    value = value.slice(0, 10)
+                  }
+                  
+                  // Format hiển thị: 0123 456 789
+                  let formatted = value
+                  if (value.length > 4) {
+                    formatted = value.slice(0, 4) + ' ' + value.slice(4)
+                  }
+                  if (value.length > 7) {
+                    formatted = value.slice(0, 4) + ' ' + value.slice(4, 7) + ' ' + value.slice(7)
+                  }
+                  
+                  setCustomerPhone(formatted)
                   if (errors.phone) {
                     setErrors({ ...errors, phone: '' })
                   }
                 }}
+                onBlur={(e) => {
+                  // Validate khi blur
+                  const phoneDigits = customerPhone.replace(/\D/g, '')
+                  if (phoneDigits.length > 0 && phoneDigits.length !== 10) {
+                    setErrors({ ...errors, phone: 'Số điện thoại phải có đúng 10 số.' })
+                  } else if (phoneDigits.length === 10 && !phoneDigits.startsWith('0')) {
+                    setErrors({ ...errors, phone: 'Số điện thoại phải bắt đầu bằng số 0.' })
+                  }
+                }}
+                maxLength={12} // 10 số + 2 khoảng trắng
                 className={`w-full border rounded-lg px-3 py-2 focus:ring focus:ring-blue-300 ${
                   errors.phone ? 'border-red-500' : ''
                 }`}
@@ -666,6 +696,11 @@ export default function CheckoutOverlay({ isOpen, onClose, directProduct }: Chec
               {errors.phone && (
                 <div id="phoneError" className="text-red-500 text-xs mt-1">
                   {errors.phone}
+                </div>
+              )}
+              {customerPhone.replace(/\D/g, '').length > 0 && customerPhone.replace(/\D/g, '').length < 10 && (
+                <div className="text-gray-500 text-xs mt-1">
+                  Còn {10 - customerPhone.replace(/\D/g, '').length} số
                 </div>
               )}
             </div>
