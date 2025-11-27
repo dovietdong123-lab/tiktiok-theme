@@ -18,6 +18,7 @@ type SettingsForm = {
   primaryColor: string
   accentColor: string
   heroBanner: string
+  adsPixelCode: string
 }
 
 const DEFAULT_SETTINGS: SettingsForm = {
@@ -32,6 +33,7 @@ const DEFAULT_SETTINGS: SettingsForm = {
   primaryColor: '#111827',
   accentColor: '#f97316',
   heroBanner: 'https://via.placeholder.com/1200x400',
+  adsPixelCode: '',
 }
 
 export default function SettingsPage() {
@@ -291,6 +293,20 @@ export default function SettingsPage() {
                   />
                 </div>
               </div>
+            </section>
+
+            <section className="bg-white rounded-lg shadow p-6 space-y-4">
+              <h2 className="text-xl font-semibold text-gray-900">Mã Pixel quảng cáo</h2>
+              <p className="text-sm text-gray-600">
+                Dán toàn bộ mã Pixel (ví dụ Facebook Pixel, Google Ads remarketing...) mà bạn nhận được từ nền tảng
+                quảng cáo. Mã này sẽ được chèn vào tất cả trang của cửa hàng.
+              </p>
+              <textarea
+                value={formData.adsPixelCode}
+                onChange={(e) => handleChange('adsPixelCode', e.target.value)}
+                className="w-full border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-xs min-h-[120px]"
+                placeholder="&lt;script&gt;...&lt;/script&gt;"
+              />
             </section>
 
             <div className="flex justify-end">

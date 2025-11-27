@@ -58,12 +58,19 @@ export default async function RootLayout({
   const supportEmail = (settings.supportEmail || '').trim()
   const hotline = (settings.hotline || '').trim()
   const businessAddress = (settings.businessAddress || '').trim()
+  const adsPixelCode = (settings.adsPixelCode || '').trim()
 
   return (
     <html lang="vi">
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
         <script src="https://cdn.tailwindcss.com"></script>
+        {adsPixelCode && (
+          <script
+            dangerouslySetInnerHTML={{ __html: adsPixelCode }}
+            suppressHydrationWarning
+          />
+        )}
       </head>
       <body className="bg-white w-full relative">
         <div className="w-full max-w-[500px] mx-auto relative">
